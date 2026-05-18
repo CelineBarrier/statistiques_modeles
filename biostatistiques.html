@@ -1,0 +1,2701 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Biostatistiques — Cours Interactif</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']]},svg:{fontCache:'global'}};</script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&family=Playfair+Display:wght@700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #f0f2f5; --panel: #ffffff; --border: #e2e8f0;
+      --accent: #4f6df5; --accent2: #10b981; --accent3: #f59e0b; --accent4: #ef4444;
+      --accent-light: #eef2ff; --accent-glow: rgba(79,109,245,0.12);
+      --text: #1a202c; --dim: #718096; --light: #f7fafc;
+      --mono: 'IBM Plex Mono', monospace;
+      --serif: 'Playfair Display', serif;
+      --sans: 'Inter', sans-serif;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+      --shadow-lg: 0 4px 24px rgba(0,0,0,0.08);
+      --sidebar-w: 280px;
+      --transition: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.7; overflow: hidden; height: 100vh; }
+
+    /* ─── LAYOUT ─── */
+    .app-layout { display: flex; height: 100vh; }
+
+    /* ─── SIDEBAR ─── */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w); background: #1e293b;
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
+      transition: width 0.3s var(--transition), min-width 0.3s var(--transition);
+      box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+      z-index: 100;
+    }
+    .sidebar-header {
+      padding: 22px 20px 18px; 
+      background: linear-gradient(145deg, #0f172a 0%, #1e40af 100%);
+      position: relative; overflow: hidden;
+    }
+    .sidebar-header::after {
+      content: ''; position: absolute; top: -30px; right: -30px;
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+    }
+    .sidebar-header h1 { font-family: var(--serif); font-size: 19px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+    .sidebar-header p { font-size: 10px; opacity: .5; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; margin-top: 2px; }
+
+    .sidebar-nav {
+      flex: 1; overflow-y: auto; padding: 10px 0 20px;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+    }
+    .sidebar-nav::-webkit-scrollbar { width: 3px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .nav-section { padding: 0; }
+
+    /* Chapter accordion toggle */
+    .nav-chapter {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      color: #60a5fa; font-weight: 700; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: all 0.2s var(--transition); user-select: none;
+    }
+    .nav-chapter:hover { background: rgba(255,255,255,0.03); }
+    .nav-chapter .ch-arrow {
+      font-size: 10px; transition: transform 0.25s var(--transition);
+      color: rgba(255,255,255,0.3);
+    }
+    .nav-chapter.open .ch-arrow { transform: rotate(180deg); }
+    .nav-chapter-items {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s var(--transition);
+    }
+    .nav-chapter.open + .nav-chapter-items { max-height: 800px; }
+
+    .nav-section-title {
+      font-size: 8px; letter-spacing: .12em; text-transform: uppercase;
+      color: rgba(255,255,255,0.25); font-weight: 600; padding: 10px 18px 4px 22px;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 18px 7px 26px; font-size: 12px; font-weight: 500;
+      color: #94a3b8; text-decoration: none; cursor: pointer;
+      border-left: 3px solid transparent; transition: all 0.2s var(--transition);
+      position: relative;
+    }
+    .nav-item:hover { color: #e2e8f0; background: rgba(255,255,255,0.04); }
+    .nav-item.active { 
+      color: #fff; border-left-color: #60a5fa; 
+      background: rgba(96,165,250,0.1); font-weight: 600;
+    }
+    .nav-item.active::before {
+      content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 20px; background: #60a5fa; border-radius: 3px 0 0 3px;
+    }
+    .nav-item.sub { padding-left: 40px; font-size: 11px; }
+
+    /* ─── SIDEBAR TOGGLE ─── */
+    .sidebar-toggle {
+      position: absolute; top: 14px; right: -14px; z-index: 110;
+      width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border);
+      background: var(--panel); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: var(--shadow); transition: all 0.2s;
+      color: var(--dim); font-size: 14px;
+    }
+    .sidebar-toggle:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; }
+    .sidebar.collapsed ~ .main-content .sidebar-toggle { left: 10px; right: auto; }
+
+    /* ─── MAIN CONTENT ─── */
+    .main-content {
+      flex: 1; overflow-y: auto; height: 100vh; position: relative;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .main-content::-webkit-scrollbar { width: 6px; }
+    .main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .content-area { max-width: 880px; margin: 0 auto; padding: 28px 40px 80px; }
+
+    /* ─── PAGE HEADER ─── */
+    .page-header {
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 40px; display: flex; align-items: center; gap: 16px;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .page-header h2 { font-family: var(--serif); font-size: 22px; color: var(--text); letter-spacing: -0.02em; }
+    .breadcrumb { font-size: 11px; color: var(--dim); letter-spacing: .04em; }
+    .breadcrumb span { color: var(--accent); font-weight: 600; }
+
+    /* ─── PROGRESS BAR ─── */
+    .progress-bar {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0; height: 3px;
+      background: var(--border); z-index: 200;
+    }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8);
+      border-radius: 0 2px 2px 0; transition: width 0.3s var(--transition);
+      width: 0;
+    }
+
+    /* ─── SECTIONS ─── */
+    .section-block { display: none; animation: fadeSlideIn 0.4s var(--transition); }
+    .section-block.active { display: block; }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h3 {
+      font-size: 17px; font-weight: 700; color: var(--text);
+      margin: 32px 0 14px; padding-left: 16px;
+      border-left: 3px solid var(--accent);
+      letter-spacing: -0.01em;
+    }
+    h4 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--accent); }
+    p { margin-bottom: 14px; color: #4a5568; line-height: 1.75; }
+
+    /* ─── CARDS ─── */
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 24px; margin: 22px 0;
+      box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover { box-shadow: var(--shadow-lg); }
+    .card-title {
+      font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--accent); font-weight: 600;
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-title::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+    /* ─── INFO BOX ─── */
+    .info-box {
+      background: linear-gradient(135deg, #eef2ff 0%, #f0f4ff 100%);
+      border-left: 4px solid var(--accent);
+      padding: 16px 20px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin: 18px 0;
+      font-size: 13.5px; position: relative; overflow: hidden;
+    }
+    .info-box::before {
+      content: 'ℹ'; position: absolute; top: -8px; right: 10px;
+      font-size: 48px; opacity: 0.04; font-weight: 700;
+    }
+    .info-box.warning { 
+      background: linear-gradient(135deg, #fffbeb 0%, #fff8f0 100%); 
+      border-left-color: var(--accent3);
+    }
+    .info-box.warning::before { content: '⚠'; }
+    .info-box.success { 
+      background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); 
+      border-left-color: var(--accent2);
+    }
+    .info-box.success::before { content: '✓'; }
+    .info-box strong { color: var(--text); }
+
+    /* ─── FORMULA BOX ─── */
+    .formula-box {
+      background: linear-gradient(135deg, #fafbff 0%, #f5f3ff 100%);
+      border: 1px solid #ddd6fe; border-radius: var(--radius);
+      padding: 20px 24px; margin: 18px 0; text-align: center;
+      font-size: 15px; overflow-x: auto;
+      position: relative;
+    }
+    .formula-box::before {
+      content: 'f(x)'; position: absolute; top: 6px; right: 12px;
+      font-family: var(--mono); font-size: 10px; color: #c4b5fd;
+      font-weight: 600; letter-spacing: 0.05em;
+    }
+
+    /* ─── INTERACTIVE AREA ─── */
+    .interactive {
+      background: var(--panel); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+      padding: 24px; margin: 26px 0;
+      position: relative; overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .interactive::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), #818cf8, var(--accent2));
+    }
+    .interactive-label {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+      text-transform: uppercase; font-weight: 700; margin-bottom: 14px;
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--accent-light); color: var(--accent);
+      padding: 4px 10px; border-radius: 20px;
+    }
+    .interactive-label::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+    .interactive-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: var(--text); letter-spacing: -0.01em; }
+
+    /* ─── CONTROLS ─── */
+    .controls { display: flex; flex-wrap: wrap; gap: 18px; margin: 16px 0; align-items: end; }
+    .control-group { flex: 1; min-width: 170px; }
+    .control-group label {
+      display: block; font-size: 11px; font-weight: 600; color: var(--dim);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .control-group input[type=range] {
+      -webkit-appearance: none; width: 100%; height: 6px;
+      background: linear-gradient(90deg, var(--accent-light), #e2e8f0);
+      border-radius: 6px; outline: none; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .control-group input[type=range]:hover { background: linear-gradient(90deg, var(--accent-glow), #dde3ea); }
+    .control-group input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 2px 6px rgba(79,109,245,0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .control-group input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15); box-shadow: 0 3px 10px rgba(79,109,245,0.45);
+    }
+    .control-group input[type=range]::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%; border: none;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 2px 6px rgba(79,109,245,0.35);
+    }
+    .control-value {
+      font-family: var(--mono); font-size: 13px; color: var(--accent);
+      font-weight: 700; margin-top: 4px;
+      background: var(--accent-light); display: inline-block;
+      padding: 2px 8px; border-radius: 4px;
+    }
+    .data-input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); font-family: var(--mono); font-size: 12px;
+      outline: none; transition: all 0.25s var(--transition); resize: vertical; min-height: 50px;
+      background: var(--light);
+    }
+    .data-input:focus { 
+      border-color: var(--accent); 
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      background: #fff;
+    }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      font-family: var(--mono); font-size: 10.5px; padding: 10px 20px;
+      border-radius: var(--radius-sm); border: 1.5px solid; cursor: pointer;
+      letter-spacing: .06em; text-transform: uppercase; transition: all 0.2s var(--transition);
+      font-weight: 600; position: relative; overflow: hidden;
+    }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,0); transition: background 0.2s;
+    }
+    .btn:active::after { background: rgba(255,255,255,0.2); }
+    .btn-primary { 
+      background: linear-gradient(135deg, var(--accent), #6366f1); 
+      border-color: var(--accent); color: #fff;
+      box-shadow: 0 2px 8px rgba(79,109,245,0.3);
+    }
+    .btn-primary:hover { 
+      transform: translateY(-1px); 
+      box-shadow: 0 4px 14px rgba(79,109,245,0.4);
+    }
+    .btn-secondary { background: transparent; border-color: var(--border); color: var(--dim); }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+
+    /* ─── RESULTS ─── */
+    .results-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px; margin: 16px 0;
+    }
+    .result-item {
+      background: linear-gradient(145deg, var(--light), #fff);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 12px; text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .result-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .result-label {
+      font-size: 9px; color: var(--dim); text-transform: uppercase;
+      letter-spacing: .1em; font-weight: 600; margin-bottom: 4px;
+    }
+    .result-value { font-family: var(--mono); font-size: 17px; color: var(--accent); font-weight: 700; }
+
+    /* ─── CHART WRAPPER ─── */
+    .chart-wrapper {
+      position: relative; background: #fff; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin: 16px 0; min-height: 250px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .chart-wrapper canvas { max-height: 320px; }
+
+    /* ─── TABLE ─── */
+    .stat-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 14px 0; border-radius: var(--radius-sm); overflow: hidden; }
+    .stat-table th {
+      background: linear-gradient(135deg, #1e293b, #334155); color: #fff; padding: 10px 14px;
+      text-align: left; font-size: 10px; letter-spacing: .06em;
+      text-transform: uppercase; font-weight: 600;
+    }
+    .stat-table th:first-child { border-radius: 8px 0 0 0; }
+    .stat-table th:last-child { border-radius: 0 8px 0 0; }
+    .stat-table td { padding: 8px 14px; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11.5px; }
+    .stat-table tr:nth-child(even) { background: #f8fafc; }
+    .stat-table tr:hover { background: var(--accent-light); }
+    .stat-table tr:last-child td:first-child { border-radius: 0 0 0 8px; }
+    .stat-table tr:last-child td:last-child { border-radius: 0 0 8px 0; }
+
+    /* ─── GRID CONCEPTS ─── */
+    .concepts-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px; margin: 20px 0;
+    }
+    .concept-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      transition: all 0.25s var(--transition);
+      position: relative; overflow: hidden;
+    }
+    .concept-card:hover { 
+      box-shadow: var(--shadow-lg); transform: translateY(-3px);
+    }
+    .concept-card::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+      background: linear-gradient(to top, rgba(0,0,0,0.01), transparent);
+      pointer-events: none;
+    }
+    .concept-title { font-weight: 700; font-size: 13.5px; margin-bottom: 8px; }
+    .concept-desc { font-size: 12.5px; color: var(--dim); line-height: 1.65; }
+
+    /* ─── STEPS ─── */
+    .steps { display: flex; flex-direction: column; gap: 0; margin: 20px 0; }
+    .step {
+      display: flex; gap: 16px; padding: 16px 0;
+      border-left: 2px solid var(--border); margin-left: 14px; padding-left: 24px;
+      position: relative; transition: border-color 0.3s;
+    }
+    .step:hover { border-left-color: var(--accent); }
+    .step::before {
+      content: attr(data-step); position: absolute; left: -14px;
+      width: 26px; height: 26px; background: linear-gradient(135deg, var(--accent), #6366f1); color: #fff;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; box-shadow: 0 2px 6px rgba(79,109,245,0.3);
+    }
+    .step-content { flex: 1; }
+    .step-title { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; }
+    .step-content p { font-size: 13px; margin: 0; }
+
+    /* ─── TABS ─── */
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+    .tab-btn {
+      padding: 10px 20px; font-size: 11px; font-weight: 600; color: var(--dim);
+      background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.2s; letter-spacing: .04em;
+      position: relative;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-content { display: none; animation: fadeSlideIn 0.3s var(--transition); }
+    .tab-content.active { display: block; }
+
+    /* ─── WELCOME ─── */
+    .welcome {
+      text-align: center; padding: 60px 20px;
+    }
+    .welcome-icon {
+      width: 80px; height: 80px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px; box-shadow: 0 8px 24px rgba(79,109,245,0.25);
+      font-size: 36px; color: #fff;
+    }
+    .welcome h2 { font-family: var(--serif); font-size: 32px; margin-bottom: 12px; letter-spacing: -0.02em; color: var(--text); }
+    .welcome p { color: var(--dim); font-size: 15px; max-width: 520px; margin: 0 auto 16px; line-height: 1.7; }
+    .welcome-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 600px; margin: 36px auto 0; }
+    .welcome-stat { 
+      background: var(--panel); border: 1px solid var(--border); 
+      border-radius: var(--radius); padding: 22px;
+      transition: all 0.25s var(--transition);
+    }
+    .welcome-stat:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+    .welcome-stat .num { 
+      font-family: var(--mono); font-size: 28px; font-weight: 700; 
+      background: linear-gradient(135deg, var(--accent), #818cf8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .welcome-stat .lbl { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }
+
+    /* ─── SCROLL TO TOP ─── */
+    .scroll-top {
+      position: fixed; bottom: 24px; right: 24px;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: var(--accent); color: #fff; border: none;
+      cursor: pointer; display: none; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(79,109,245,0.4);
+      transition: all 0.25s var(--transition); z-index: 100;
+      font-size: 20px;
+    }
+    .scroll-top:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(79,109,245,0.5); }
+    .scroll-top.visible { display: flex; }
+
+    /* ─── KEYBOARD SHORTCUT HINT ─── */
+    .kbd {
+      display: inline-block; padding: 2px 6px; border: 1px solid var(--border);
+      border-radius: 4px; font-family: var(--mono); font-size: 10px;
+      background: var(--light); color: var(--dim); vertical-align: middle;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* ─── TOOLTIP ─── */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff; padding: 5px 10px; border-radius: 6px;
+      font-size: 10px; white-space: nowrap; z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      animation: tooltipIn 0.15s var(--transition);
+    }
+    @keyframes tooltipIn { from { opacity: 0; transform: translateX(-50%) translateY(4px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      .sidebar { position: fixed; left: 0; top: 0; z-index: 200; transform: translateX(0); }
+      .sidebar.collapsed { transform: translateX(-100%); }
+      .content-area { padding: 20px 16px 60px; }
+      .concepts-grid { grid-template-columns: 1fr; }
+      .results-grid { grid-template-columns: repeat(2, 1fr); }
+      .page-header { padding: 14px 16px; }
+      .page-header h2 { font-size: 18px; }
+      .mobile-overlay { 
+        display: none; position: fixed; inset: 0; 
+        background: rgba(0,0,0,0.4); z-index: 150;
+        backdrop-filter: blur(4px);
+      }
+      .mobile-overlay.active { display: block; }
+    }
+    @media (max-width: 600px) {
+      .welcome-grid { grid-template-columns: 1fr; max-width: 200px; }
+      .controls { flex-direction: column; }
+      .control-group { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- ═══════════════════ MOBILE OVERLAY ═══════════════════ -->
+  <div class="mobile-overlay" id="mobile-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- ════════════════════════ SIDEBAR ════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1>LABORATOIRE VIRTUEL</h1>
+      <p style="font-size:10px;letter-spacing:.03em;margin-top:8px;text-transform:none;color:#e2e8f0;">Plateforme creee par Celine Barrier, PhD</p>
+      <p style="font-size:9px;letter-spacing:.03em;margin-top:2px;text-transform:none;color:#cbd5e1;">Ecologie numerique</p>
+      <p style="font-size:9px;letter-spacing:.03em;margin-top:2px;text-transform:none;color:#cbd5e1;">Universite de Corse — UMR 6134 SPE</p>
+    </div>
+    <nav class="sidebar-nav">
+
+      <!-- Accueil -->
+      <div class="nav-section">
+        <a class="nav-item active" data-target="welcome" style="padding-left:18px;">Presentation</a>
+      </div>
+
+      <!-- CHAPITRE I -->
+      <div class="nav-chapter open" onclick="this.classList.toggle('open')">Chapitre I — Stat. descriptive <span class="ch-arrow">▼</span></div>
+      <div class="nav-chapter-items">
+        <div class="nav-section-title">Fondamentaux</div>
+        <a class="nav-item" data-target="s-intro">Introduction</a>
+        <a class="nav-item sub" data-target="s-demarche">Demarche statistique</a>
+        <a class="nav-item" data-target="s-notions">Notions de base</a>
+        <a class="nav-item sub" data-target="s-pop-ech">Population et echantillon</a>
+        <a class="nav-item sub" data-target="s-variables">Types de variables</a>
+        <a class="nav-item sub" data-target="s-frequences">Frequences</a>
+        <div class="nav-section-title">Representations graphiques</div>
+        <a class="nav-item" data-target="s-histogramme">Histogramme</a>
+        <a class="nav-item sub" data-target="s-batons">Diagramme en batons</a>
+        <a class="nav-item sub" data-target="s-boxplot-intro">Boite a moustaches</a>
+        <div class="nav-section-title">Parametres de position</div>
+        <a class="nav-item" data-target="s-position">Valeurs centrales</a>
+        <a class="nav-item sub" data-target="s-mean-median">Moyenne vs Mediane</a>
+        <a class="nav-item sub" data-target="s-quartiles">Quartiles et Box Plot</a>
+        <div class="nav-section-title">Parametres de dispersion</div>
+        <a class="nav-item" data-target="s-dispersion">Parametres de dispersion</a>
+        <a class="nav-item sub" data-target="s-gauss">Loi Normale (Gauss)</a>
+        <div class="nav-section-title">Parametres de forme</div>
+        <a class="nav-item" data-target="s-forme">Asymetrie et aplatissement</a>
+      </div>
+
+      <!-- CHAPITRE II -->
+      <div class="nav-chapter" onclick="this.classList.toggle('open')">Chapitre II — Serie double <span class="ch-arrow">▼</span></div>
+      <div class="nav-chapter-items">
+        <a class="nav-item" data-target="s-correlation">Covariance et correlation</a>
+        <a class="nav-item sub" data-target="s-regression">Regression lineaire</a>
+      </div>
+
+      <!-- CHAPITRE III -->
+      <div class="nav-chapter" onclick="this.classList.toggle('open')">Chapitre III — Stat. inferentielle <span class="ch-arrow">▼</span></div>
+      <div class="nav-chapter-items">
+        <div class="nav-section-title">Probabilites</div>
+        <a class="nav-item" data-target="s-proba-intro">Introduction aux probabilites</a>
+        <a class="nav-item sub" data-target="s-loi-normale-z">Loi Normale centree reduite</a>
+        <div class="nav-section-title">Estimation</div>
+        <a class="nav-item" data-target="s-intervalle-confiance">Intervalle de confiance</a>
+        <div class="nav-section-title">Tests d'hypotheses</div>
+        <a class="nav-item" data-target="s-tests-intro">Principe des tests</a>
+        <a class="nav-item sub" data-target="s-test-t">Test t de Student</a>
+        <a class="nav-item sub" data-target="s-test-chi2">Test du Chi-deux</a>
+        <a class="nav-item sub" data-target="s-anova">ANOVA (F de Fisher)</a>
+      </div>
+
+      <!-- OUTILS -->
+      <div class="nav-chapter" onclick="this.classList.toggle('open')">Outils <span class="ch-arrow">▼</span></div>
+      <div class="nav-chapter-items">
+        <a class="nav-item" data-target="s-calculateur">Calculateur complet</a>
+        <div class="nav-section-title">Tables statistiques</div>
+        <a class="nav-item" data-target="s-table-z">Table Z (Normale)</a>
+        <a class="nav-item" data-target="s-table-t">Table t de Student</a>
+        <a class="nav-item" data-target="s-table-chi2">Table Chi-deux</a>
+        <a class="nav-item" data-target="s-table-f">Table F de Fisher</a>
+        <div class="nav-section-title">Exercices</div>
+        <a class="nav-item" data-target="s-quiz-general">Quiz general (10 pts)</a>
+      </div>
+
+      <!-- SIMULATIONS -->
+      <div class="nav-chapter" onclick="this.classList.toggle('open')">Simulations <span class="ch-arrow">▼</span></div>
+      <div class="nav-chapter-items">
+        <a class="nav-item" data-target="s-game-of-life">Jeu de la Vie (Conway)</a>
+        <a class="nav-item" data-target="s-random-walk">Marche aleatoire</a>
+        <a class="nav-item" data-target="s-cmr">TP — Capture-Marquage-Recapture</a>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- ════════════════════════ MAIN ════════════════════════ -->
+  <div class="main-content" id="main-content">
+    <!-- Progress bar -->
+    <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+
+    <!-- ═══ WELCOME ═══ -->
+    <div class="section-block active" id="welcome">
+      <div class="welcome">
+        <h2 style="font-size:28px;">Laboratoire virtuel de biostatistique</h2>
+        <p style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:20px;letter-spacing:0.04em;text-transform:uppercase;">Prototype d'experimentation</p>
+        <p style="text-align:left;max-width:640px;">Ce prototype propose une approche immersive pour apprehender les biostatistiques par la pratique et l'observation directe. En manipulant vous-meme les parametres des equations et des tests au sein de mini-simulations, vous transformez les concepts abstraits en objets tangibles et visuels.</p>
+        <p style="text-align:left;max-width:640px;">L'objectif de cet espace interactif est de vous permettre de jongler avec les variables pour mieux vous representer les donnees dans l'espace et saisir intuitivement la logique des modeles. Profitez de cet environnement de test pour explorer la discipline, tester vos hypotheses et rendre la statistique concrete au travers de l'experimentation numerique.</p>
+        <p style="font-size:13px; color:var(--dim); margin-top:8px;">Selectionnez une section dans le menu de gauche pour commencer.</p>
+        <div class="welcome-grid">
+          <div class="welcome-stat"><div class="num">16</div><div class="lbl">Sections</div></div>
+          <div class="welcome-stat"><div class="num">18+</div><div class="lbl">Interactifs</div></div>
+          <div class="welcome-stat"><div class="num">3</div><div class="lbl">Chapitres</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ INTRO ═══ -->
+    <div class="section-block" id="s-intro">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I <span>/ Introduction</span></div><h2>Introduction a la Statistique</h2></div></div>
+      <div class="content-area">
+        <p>La <strong>statistique</strong> designe a la fois l'ensemble des donnees numeriques concernant une categorie de faits, et l'ensemble des methodes mathematiques permettant de resumer, analyser et interpreter ces donnees.</p>
+        <div class="info-box">
+          <strong>Objectif :</strong> Developper la comprehension conceptuelle des biostatistiques a travers l'application interactive et l'interpretation d'analyses statistiques appliquees a la biologie et l'environnement.
+        </div>
+        <div class="concepts-grid">
+          <div class="concept-card" style="border-top: 3px solid var(--accent);">
+            <div class="concept-title">Statistique descriptive</div>
+            <div class="concept-desc">Resumer et presenter les donnees sous forme accessible : tableaux, graphiques, parametres numeriques. C'est l'objet principal de ce cours.</div>
+          </div>
+          <div class="concept-card" style="border-top: 3px solid var(--accent2);">
+            <div class="concept-title">Statistique inferentielle</div>
+            <div class="concept-desc">Generaliser a une population les conclusions tirees d'un echantillon. Utilise les probabilites, l'estimation et les tests d'hypotheses.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DEMARCHE ═══ -->
+    <div class="section-block" id="s-demarche">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I <span>/ Demarche statistique</span></div><h2>Demarche generale en statistique</h2></div></div>
+      <div class="content-area">
+        <p>Toute etude statistique peut etre decomposee en phases : identification du probleme, recueil des donnees, et analyse/interpretation.</p>
+        <div class="steps">
+          <div class="step" data-step="1"><div class="step-content"><div class="step-title">Identification du probleme</div><p>Quels sont les objectifs ? Quelle population etudier ? Quelles variables mesurer ?</p></div></div>
+          <div class="step" data-step="2"><div class="step-content"><div class="step-title">Recueil des donnees</div><p>Par observation ou experimentation. Definir un plan d'echantillonnage ou d'experience.</p></div></div>
+          <div class="step" data-step="3"><div class="step-content"><div class="step-title">Analyse et interpretation</div><p><strong>Statistique descriptive</strong> (resumer, presenter) puis <strong>statistique inferentielle</strong> (generaliser, tester).</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ NOTIONS ═══ -->
+    <div class="section-block" id="s-notions">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I <span>/ Notions de base</span></div><h2>Notions de base et terminologie</h2></div></div>
+      <div class="content-area">
+        <p>Avant toute analyse statistique, il est essentiel de maitriser le vocabulaire : population, echantillon, individu, variable, modalite, frequence.</p>
+        <div class="info-box">
+          <strong>Vocabulaire cle :</strong> L'<strong>ensemble</strong> est la collection d'unites sur laquelle porte l'observation. La <strong>population</strong> est l'ensemble des individus sur lequel porte l'etude. L'<strong>echantillon</strong> est la fraction de la population reellement observee.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ POP/ECH ═══ -->
+    <div class="section-block" id="s-pop-ech">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Notions <span>/ Population et echantillon</span></div><h2>Population et echantillon</h2></div></div>
+      <div class="content-area">
+        <p>La <strong>population</strong> correspond a l'ensemble des individus sur lequel porte l'etude. L'<strong>echantillon</strong> represente la fraction de cette population qui est reellement observee.</p>
+        <p>Un echantillon doit etre <strong>representatif</strong> et de preference <strong>aleatoire</strong> : chaque element de la population statistique a une probabilite connue et non nulle d'appartenir a l'echantillon.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Simuler un echantillonnage</div>
+          <p>Visualisez comment un echantillon est tire d'une population. Chaque point represente un individu.</p>
+          <div class="controls">
+            <div class="control-group"><label>Taille de la population (N)</label><input type="range" id="pop-size" min="50" max="500" value="200" step="10" oninput="updateSampling()"><div class="control-value" id="pop-size-val">200</div></div>
+            <div class="control-group"><label>Taille de l'echantillon (n)</label><input type="range" id="sample-size" min="5" max="100" value="30" step="5" oninput="updateSampling()"><div class="control-value" id="sample-size-val">30</div></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="drawSampling()">Tirer un echantillon</button></div>
+          <div class="chart-wrapper"><canvas id="sampling-canvas" height="200"></canvas></div>
+          <div class="results-grid" id="sampling-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ VARIABLES ═══ -->
+    <div class="section-block" id="s-variables">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Notions <span>/ Types de variables</span></div><h2>Nature des variables statistiques</h2></div></div>
+      <div class="content-area">
+        <div class="concepts-grid">
+          <div class="concept-card" style="border-top: 3px solid var(--accent);">
+            <div class="concept-title">Variable quantitative</div>
+            <div class="concept-desc">On peut lui associer un nombre (mesurable).<br><strong>Discrete :</strong> nombre fini de valeurs (nb d'enfants, nb de petales).<br><strong>Continue :</strong> toutes les valeurs d'un intervalle (taille, poids, temperature).</div>
+          </div>
+          <div class="concept-card" style="border-top: 3px solid var(--accent2);">
+            <div class="concept-title">Variable qualitative</div>
+            <div class="concept-desc">Modalites non quantifiables.<br><strong>Nominale :</strong> pas d'ordre naturel (couleur, sexe).<br><strong>Ordinale :</strong> ordre naturel (petit, moyen, grand).</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Quiz — Identifiez le type de variable</div>
+          <div id="quiz-question" style="font-size:14px; font-weight:600; margin-bottom:10px;"></div>
+          <div class="btn-row" id="quiz-answers"></div>
+          <div id="quiz-feedback" style="margin-top:8px; font-weight:600; min-height:20px;"></div>
+          <button class="btn btn-secondary" onclick="nextQuizQuestion()" style="margin-top:8px;">Question suivante →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FREQUENCES ═══ -->
+    <div class="section-block" id="s-frequences">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Notions <span>/ Frequences</span></div><h2>Frequences absolues, relatives et cumulees</h2></div></div>
+      <div class="content-area">
+        <div class="formula-box">
+          <strong>Frequence absolue :</strong> $n_i$ = effectif de la modalite $x_i$ &emsp;|&emsp;
+          <strong>Frequence relative :</strong> $f_i = \frac{n_i}{N}$ &emsp;|&emsp;
+          <strong>Frequence cumulee :</strong> $F_i = \sum_{p=1}^{i} f_p$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Tableau de frequences</div>
+          <p>Entrez vos donnees separees par des virgules :</p>
+          <textarea class="data-input" id="freq-data" rows="2">0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5</textarea>
+          <div class="btn-row"><button class="btn btn-primary" onclick="computeFrequencies()">Calculer les frequences</button></div>
+          <div id="freq-table-container"></div>
+          <div class="chart-wrapper" id="freq-chart-wrap" style="display:none;"><canvas id="freq-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ HISTOGRAMME ═══ -->
+    <div class="section-block" id="s-histogramme">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Representations <span>/ Histogramme</span></div><h2>L'histogramme</h2></div></div>
+      <div class="content-area">
+        <p>L'histogramme represente les effectifs d'une variable quantitative continue par classes de valeur. La <strong>surface</strong> (et non la hauteur) de chaque rectangle est proportionnelle a l'effectif.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Construire un histogramme</div>
+          <p>Entrez des donnees numeriques (ex: mesures de longueurs en mm) :</p>
+          <textarea class="data-input" id="histo-data" rows="3">158, 152, 171, 163, 140, 157, 162, 171, 158, 164, 163, 159, 153, 160, 149, 158, 152, 165, 156, 162, 150, 154, 155, 162, 155, 164, 164, 157, 159, 158, 159, 153, 163, 158, 174, 162, 156, 151, 160, 158, 162, 166, 162, 164, 158, 153, 165, 158, 150, 160</textarea>
+          <div class="controls"><div class="control-group"><label>Nombre de classes</label><input type="range" id="histo-bins" min="3" max="15" value="7" oninput="document.getElementById('histo-bins-val').textContent=this.value"><div class="control-value" id="histo-bins-val">7</div></div></div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="buildHistogram()">Construire l'histogramme</button></div>
+          <div class="results-grid" id="histo-info"></div>
+          <div class="chart-wrapper"><canvas id="histo-chart"></canvas></div>
+          <div id="histo-table-container"></div>
+          <div class="info-box" style="margin-top:14px;">
+            <strong>Regle de Sturge :</strong> $\text{Nb classes} = 1 + 3{,}3 \times \log(n)$ &emsp;
+            <strong>Regle de Yule :</strong> $\text{Nb classes} = 2{,}5 \times \sqrt[4]{n}$
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BATONS ═══ -->
+    <div class="section-block" id="s-batons">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Representations <span>/ Diagramme en batons</span></div><h2>Diagramme en batons (variable discrete)</h2></div></div>
+      <div class="content-area">
+        <p>Pour les caracteres quantitatifs discrets, la representation graphique est le diagramme en batons ou la hauteur des batons correspond a l'effectif associe a chaque modalite.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Exemple : cecidomyie du hetre</div>
+          <p>Distribution du nombre de galles par feuille (n = 375 feuilles).</p>
+          <div class="btn-row"><button class="btn btn-primary" onclick="buildBarChart()">Afficher le diagramme</button></div>
+          <div class="chart-wrapper"><canvas id="bar-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BOXPLOT INTRO ═══ -->
+    <div class="section-block" id="s-boxplot-intro">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Representations <span>/ Boite a moustaches</span></div><h2>Boite a moustaches (Box Plot)</h2></div></div>
+      <div class="content-area">
+        <p>La boite a moustaches est une representation graphique qui resume la dispersion d'un echantillon a l'aide de 5 valeurs : le minimum, Q1, la mediane (Q2), Q3 et le maximum.</p>
+        <div class="formula-box">
+          $Q_1$ : 25% en dessous &emsp;|&emsp; $Q_2 = Me$ : 50% &emsp;|&emsp; $Q_3$ : 75% en dessous<br><br>
+          $IQR = Q_3 - Q_1$ &emsp;|&emsp; Moustache inf. : $Q_1 - 1{,}5 \times IQR$ &emsp;|&emsp; Moustache sup. : $Q_3 + 1{,}5 \times IQR$
+        </div>
+        <p>Les points au-dela des moustaches sont consideres comme des <strong>valeurs atypiques</strong> (outliers).</p>
+      </div>
+    </div>
+
+    <!-- ═══ POSITION ═══ -->
+    <div class="section-block" id="s-position">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Position <span>/ Valeurs centrales</span></div><h2>Parametres de position</h2></div></div>
+      <div class="content-area">
+        <p>Les valeurs centrales resument en une seule valeur l'ensemble d'une distribution statistique.</p>
+        <div class="concepts-grid">
+          <div class="concept-card" style="border-top: 3px solid #3b82f6;"><div class="concept-title">Le Mode (Mo)</div><div class="concept-desc">Valeur la plus frequente. Le sommet de l'histogramme. Utilisable pour tous les types de variables.</div></div>
+          <div class="concept-card" style="border-top: 3px solid #10b981;"><div class="concept-title">La Moyenne ($\bar{x}$)</div><div class="concept-desc">Somme des valeurs divisee par l'effectif. Sensible aux valeurs extremes. Variables quantitatives uniquement.</div></div>
+          <div class="concept-card" style="border-top: 3px solid #f59e0b;"><div class="concept-title">La Mediane (Me)</div><div class="concept-desc">Valeur qui partage la serie en deux moities egales. Robuste aux valeurs aberrantes.</div></div>
+          <div class="concept-card" style="border-top: 3px solid #8b5cf6;"><div class="concept-title">Les Quantiles</div><div class="concept-desc">Valeurs partageant la distribution : quartiles (4 parts), deciles (10 parts), centiles (100 parts).</div></div>
+        </div>
+        <div class="formula-box">
+          <strong>Donnees brutes :</strong> $\bar{x} = \frac{1}{N}\sum_{i=1}^{N} x_i$ &emsp;&emsp;
+          <strong>Donnees ponderees :</strong> $\bar{x} = \frac{\sum n_i \cdot x_i}{\sum n_i}$
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MEAN VS MEDIAN ═══ -->
+    <div class="section-block" id="s-mean-median">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Position <span>/ Moyenne vs Mediane</span></div><h2>Effet des valeurs extremes</h2></div></div>
+      <div class="content-area">
+        <p>Quand on modifie les valeurs extremes d'une serie, la moyenne change contrairement a la mediane qui reste stable. On dit que la moyenne est « sensible aux valeurs extremes ».</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Moyenne vs Mediane</div>
+          <p>Deplacez le curseur pour ajouter une valeur extreme et observez l'effet :</p>
+          <div class="controls"><div class="control-group"><label>Valeur extreme ajoutee</label><input type="range" id="extreme-val" min="10" max="500" value="12" step="1" oninput="updateMeanMedian()"><div class="control-value" id="extreme-val-display">12</div></div></div>
+          <p id="mean-median-data" style="font-family:var(--mono); font-size:11px; background:var(--light); padding:10px 12px; border-radius:var(--radius-sm); border: 1px solid var(--border);"></p>
+          <div class="results-grid" id="mean-median-results"></div>
+          <div class="chart-wrapper"><canvas id="mean-median-chart"></canvas></div>
+          <div class="info-box"><strong>Observation :</strong> La <strong>moyenne change</strong> fortement avec les valeurs extremes, mais la <strong>mediane reste stable</strong>. La mediane est donc plus robuste aux valeurs aberrantes.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ QUARTILES ═══ -->
+    <div class="section-block" id="s-quartiles">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Position <span>/ Quartiles et Box Plot</span></div><h2>Quartiles et boite a moustaches</h2></div></div>
+      <div class="content-area">
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Boite a moustaches interactive</div>
+          <p>Entrez vos donnees pour generer un box plot :</p>
+          <textarea class="data-input" id="boxplot-data" rows="2">24.3, 31.85, 33.61, 36.81, 38.92, 29.2, 31.4, 32, 32.3, 32.5, 34.7, 34.9, 36.6, 37.2, 39.4</textarea>
+          <div class="btn-row"><button class="btn btn-primary" onclick="buildBoxPlot()">Construire le Box Plot</button></div>
+          <div class="chart-wrapper"><canvas id="boxplot-chart"></canvas></div>
+          <div class="results-grid" id="boxplot-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DISPERSION ═══ -->
+    <div class="section-block" id="s-dispersion">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Dispersion <span>/ Parametres</span></div><h2>Parametres de dispersion</h2></div></div>
+      <div class="content-area">
+        <p>La <strong>dispersion statistique</strong> mesure la tendance des valeurs a s'etaler de part et d'autre d'une valeur centrale.</p>
+        <div class="formula-box">
+          <strong>Etendue :</strong> $E = X_{max} - X_{min}$<br><br>
+          <strong>Variance :</strong> $\sigma^2 = \frac{1}{N}\sum_{i=1}^{N}(x_i - \bar{x})^2$ &emsp;&emsp;
+          <strong>Ecart-type :</strong> $\sigma = \sqrt{\sigma^2}$<br><br>
+          <strong>Coefficient de variation :</strong> $CV = \frac{\sigma}{\bar{x}} \times 100\%$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Visualiser la dispersion</div>
+          <p>Comparez deux distributions avec la meme moyenne mais des dispersions differentes :</p>
+          <div class="controls">
+            <div class="control-group"><label>Ecart-type s1 (bleue)</label><input type="range" id="sigma1" min="1" max="30" value="5" step="1" oninput="updateDispersion()"><div class="control-value" id="sigma1-val">5</div></div>
+            <div class="control-group"><label>Ecart-type s2 (rouge)</label><input type="range" id="sigma2" min="1" max="30" value="15" step="1" oninput="updateDispersion()"><div class="control-value" id="sigma2-val">15</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="dispersion-chart"></canvas></div>
+          <div class="results-grid" id="dispersion-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ GAUSS ═══ -->
+    <div class="section-block" id="s-gauss">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Dispersion <span>/ Loi Normale</span></div><h2>Distribution Normale (Loi de Gauss)</h2></div></div>
+      <div class="content-area">
+        <div class="info-box success">
+          Lorsqu'une distribution est <strong>gaussienne</strong> :<br>
+          &bull; <strong>68,3%</strong> des valeurs entre $\bar{x} - \sigma$ et $\bar{x} + \sigma$<br>
+          &bull; <strong>95,5%</strong> des valeurs entre $\bar{x} - 2\sigma$ et $\bar{x} + 2\sigma$<br>
+          &bull; <strong>99,7%</strong> des valeurs entre $\bar{x} - 3\sigma$ et $\bar{x} + 3\sigma$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Courbe de Gauss</div>
+          <div class="controls">
+            <div class="control-group"><label>Moyenne (mu)</label><input type="range" id="gauss-mean" min="30" max="70" value="50" step="1" oninput="updateGauss()"><div class="control-value" id="gauss-mean-val">50</div></div>
+            <div class="control-group"><label>Ecart-type (sigma)</label><input type="range" id="gauss-sigma" min="2" max="20" value="8" step="1" oninput="updateGauss()"><div class="control-value" id="gauss-sigma-val">8</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="gauss-chart"></canvas></div>
+          <div class="results-grid" id="gauss-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FORME ═══ -->
+    <div class="section-block" id="s-forme">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre I / Forme <span>/ Asymetrie et aplatissement</span></div><h2>Parametres de forme</h2></div></div>
+      <div class="content-area">
+        <p>Ces parametres precisent la forme de la distribution : symetrie et aplatissement.</p>
+        <h3>Asymetrie (Skewness)</h3>
+        <div class="formula-box">
+          <strong>Pearson :</strong> $p = \frac{\bar{x} - Mo}{\sigma}$ &emsp;&emsp;
+          <strong>Fisher :</strong> $\gamma_1 = \frac{\mu_3}{\sigma^3}$
+        </div>
+        <div class="concepts-grid">
+          <div class="concept-card"><div class="concept-title">Asymetrie negative</div><div class="concept-desc">Queue etalee a gauche. Mo > Me > mu.</div></div>
+          <div class="concept-card"><div class="concept-title">Symetrique</div><div class="concept-desc">Mo = Me = mu. Distribution equilibree.</div></div>
+          <div class="concept-card"><div class="concept-title">Asymetrie positive</div><div class="concept-desc">Queue etalee a droite. Mo < Me < mu.</div></div>
+        </div>
+        <h3>Aplatissement (Kurtosis)</h3>
+        <div class="formula-box">
+          $\gamma_2 = \frac{\mu_4}{\sigma^4} - 3$<br><br>
+          $\gamma_2 = 0$ : Mesocurtique &emsp;|&emsp; $\gamma_2 > 0$ : Leptocurtique &emsp;|&emsp; $\gamma_2 < 0$ : Platycurtique
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Explorer la forme de la distribution</div>
+          <div class="controls">
+            <div class="control-group"><label>Asymetrie (skewness)</label><input type="range" id="shape-skew" min="-3" max="3" value="0" step="0.1" oninput="updateShape()"><div class="control-value" id="shape-skew-val">0</div></div>
+            <div class="control-group"><label>Aplatissement (kurtosis)</label><input type="range" id="shape-kurt" min="-2" max="5" value="0" step="0.1" oninput="updateShape()"><div class="control-value" id="shape-kurt-val">0</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="shape-chart"></canvas></div>
+          <div class="results-grid" id="shape-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CORRELATION ═══ -->
+    <div class="section-block" id="s-correlation">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre II <span>/ Covariance et correlation</span></div><h2>Covariance et coefficient de correlation</h2></div></div>
+      <div class="content-area">
+        <p>L'objectif est d'etudier deux caracteres differents sur une meme population et de rechercher s'il existe un <strong>lien ou correlation</strong> entre ces deux variables.</p>
+        <div class="formula-box">
+          <strong>Covariance :</strong> $Cov(X,Y) = \frac{1}{N}\sum(x_i - \bar{x})(y_i - \bar{y})$<br><br>
+          <strong>Coefficient de correlation :</strong> $r = \frac{Cov(X,Y)}{\sigma_x \cdot \sigma_y}$ &emsp; avec $-1 \leq r \leq 1$
+        </div>
+        <div class="info-box warning"><strong>Attention :</strong> correlation ne signifie pas causalite. Deux variables peuvent etre correlees sans relation de cause a effet.</div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Explorateur de correlation</div>
+          <div class="controls">
+            <div class="control-group"><label>Coefficient r</label><input type="range" id="corr-r" min="-100" max="100" value="80" step="1" oninput="updateCorrelation()"><div class="control-value" id="corr-r-val">0.80</div></div>
+            <div class="control-group"><label>Nombre de points</label><input type="range" id="corr-n" min="20" max="200" value="60" step="10" oninput="updateCorrelation()"><div class="control-value" id="corr-n-val">60</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="corr-chart"></canvas></div>
+          <div class="results-grid" id="corr-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ REGRESSION ═══ -->
+    <div class="section-block" id="s-regression">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre II <span>/ Regression lineaire</span></div><h2>Droite de regression lineaire</h2></div></div>
+      <div class="content-area">
+        <div class="formula-box">
+          $y = ax + b$ &emsp; avec &emsp; $a = \frac{Cov(X,Y)}{\sigma_x^2}$ &emsp; et &emsp; $b = \bar{y} - a\bar{x}$
+        </div>
+        <p>La methode des <strong>moindres carres</strong> determine les coefficients a et b qui minimisent la somme des carres des distances entre les points et la droite.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Regression lineaire</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Valeurs X</label><textarea class="data-input" id="reg-x" rows="2">1, 2, 3, 4, 5, 6, 7, 8</textarea></div>
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Valeurs Y</label><textarea class="data-input" id="reg-y" rows="2">720, 735, 730, 765, 790, 810, 870, 895</textarea></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="computeRegression()">Calculer la regression</button></div>
+          <div class="results-grid" id="reg-results"></div>
+          <div class="chart-wrapper"><canvas id="reg-chart"></canvas></div>
+          <div class="controls"><div class="control-group"><label>Predire Y pour X =</label><input type="range" id="reg-predict" min="1" max="15" value="9" step="0.5" oninput="updatePrediction()"><div class="control-value" id="reg-predict-val">9</div></div></div>
+          <div class="results-grid" id="reg-prediction"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PROBA INTRO ═══ -->
+    <div class="section-block" id="s-proba-intro">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III <span>/ Introduction aux probabilites</span></div><h2>Introduction aux probabilites</h2></div></div>
+      <div class="content-area">
+        <p>La <strong>statistique inferentielle</strong> permet de generaliser les resultats obtenus sur un echantillon a l'ensemble de la population. Elle repose sur la theorie des probabilites.</p>
+        <div class="concepts-grid">
+          <div class="concept-card" style="border-top: 3px solid var(--accent);"><div class="concept-title">Echantillonnage</div><div class="concept-desc">La moyenne d'un echantillon ($\bar{x}$) est une estimation de la moyenne de la population ($\mu$). Plus n est grand, plus l'estimation est precise.</div></div>
+          <div class="concept-card" style="border-top: 3px solid var(--accent2);"><div class="concept-title">Distribution d'echantillonnage</div><div class="concept-desc">Si on repete l'echantillonnage, les moyennes obtenues forment une distribution normale centree sur $\mu$ avec un ecart-type $\sigma/\sqrt{n}$.</div></div>
+          <div class="concept-card" style="border-top: 3px solid var(--accent3);"><div class="concept-title">Erreur standard</div><div class="concept-desc">$SE = \frac{s}{\sqrt{n}}$ mesure l'incertitude sur la moyenne estimee. Elle diminue quand n augmente.</div></div>
+        </div>
+        <div class="formula-box">
+          <strong>Theoreme central limite :</strong> Quelle que soit la distribution de la population, la distribution des moyennes d'echantillons tend vers une loi normale $\mathcal{N}(\mu, \frac{\sigma^2}{n})$ quand $n \to \infty$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Theoreme central limite</div>
+          <p>Simulez la distribution des moyennes de plusieurs echantillons :</p>
+          <div class="controls">
+            <div class="control-group"><label>Taille echantillon (n)</label><input type="range" id="tcl-n" min="2" max="100" value="30" step="1" oninput="document.getElementById('tcl-n-val').textContent=this.value"><div class="control-value" id="tcl-n-val">30</div></div>
+            <div class="control-group"><label>Nb repetitions</label><input type="range" id="tcl-rep" min="100" max="5000" value="1000" step="100" oninput="document.getElementById('tcl-rep-val').textContent=this.value"><div class="control-value" id="tcl-rep-val">1000</div></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="runTCL()">Simuler</button></div>
+          <div class="chart-wrapper"><canvas id="tcl-chart"></canvas></div>
+          <div class="results-grid" id="tcl-results"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ LOI NORMALE Z ═══ -->
+    <div class="section-block" id="s-loi-normale-z">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III <span>/ Loi Normale centree reduite</span></div><h2>Loi Normale centree reduite (Z)</h2></div></div>
+      <div class="content-area">
+        <p>La variable centree reduite <strong>Z</strong> permet de standardiser toute variable normale :</p>
+        <div class="formula-box">
+          $Z = \frac{X - \mu}{\sigma}$ &emsp;&emsp; $Z \sim \mathcal{N}(0, 1)$
+        </div>
+        <p>Cela permet de lire les probabilites dans une table unique, quelle que soit la moyenne et l'ecart-type d'origine.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculateur Z et probabilites</div>
+          <div class="controls">
+            <div class="control-group"><label>Valeur Z</label><input type="range" id="z-val" min="-350" max="350" value="196" step="1" oninput="updateZCalc()"><div class="control-value" id="z-val-display">1.96</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="z-chart"></canvas></div>
+          <div class="results-grid" id="z-results"></div>
+          <div class="info-box success">
+            <strong>Valeurs cles :</strong> $Z_{0.05} = 1{,}96$ (95%) &emsp;|&emsp; $Z_{0.01} = 2{,}576$ (99%) &emsp;|&emsp; $Z_{0.001} = 3{,}291$ (99.9%)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ INTERVALLE DE CONFIANCE ═══ -->
+    <div class="section-block" id="s-intervalle-confiance">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III / Estimation <span>/ Intervalle de confiance</span></div><h2>Intervalle de confiance</h2></div></div>
+      <div class="content-area">
+        <p>Un <strong>intervalle de confiance</strong> donne une fourchette dans laquelle la vraie valeur du parametre de la population a une probabilite donnee de se trouver.</p>
+        <div class="formula-box">
+          <strong>IC pour la moyenne :</strong> $\bar{x} \pm t_{\alpha/2} \times \frac{s}{\sqrt{n}}$<br><br>
+          Ou $t_{\alpha/2}$ est la valeur critique de la loi de Student a $n-1$ degres de liberte.
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculer un intervalle de confiance</div>
+          <div class="controls">
+            <div class="control-group"><label>Moyenne (x&#772;)</label><input type="range" id="ic-mean" min="10" max="100" value="50" step="1" oninput="updateIC()"><div class="control-value" id="ic-mean-val">50</div></div>
+            <div class="control-group"><label>Ecart-type (s)</label><input type="range" id="ic-sd" min="1" max="30" value="10" step="1" oninput="updateIC()"><div class="control-value" id="ic-sd-val">10</div></div>
+            <div class="control-group"><label>Taille (n)</label><input type="range" id="ic-n" min="5" max="200" value="30" step="1" oninput="updateIC()"><div class="control-value" id="ic-n-val">30</div></div>
+          </div>
+          <div class="chart-wrapper"><canvas id="ic-chart"></canvas></div>
+          <div class="results-grid" id="ic-results"></div>
+          <div class="info-box">
+            <strong>Interpretation :</strong> "Nous sommes confiants a 95% que la vraie moyenne de la population se trouve dans cet intervalle."
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TESTS INTRO ═══ -->
+    <div class="section-block" id="s-tests-intro">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III / Tests <span>/ Principe</span></div><h2>Principe des tests d'hypotheses</h2></div></div>
+      <div class="content-area">
+        <p>Un <strong>test d'hypothese</strong> est une procedure statistique pour decider si une affirmation sur un parametre de population est compatible avec les donnees observees.</p>
+        <div class="steps">
+          <div class="step" data-step="1"><div class="step-content"><div class="step-title">Formuler les hypotheses</div><p><strong>H0</strong> (hypothese nulle) : pas d'effet, pas de difference. <strong>H1</strong> (hypothese alternative) : il y a un effet.</p></div></div>
+          <div class="step" data-step="2"><div class="step-content"><div class="step-title">Choisir le seuil de signification</div><p>$\alpha$ = probabilite de rejeter H0 alors qu'elle est vraie. Habituellement $\alpha = 0{,}05$ (5%).</p></div></div>
+          <div class="step" data-step="3"><div class="step-content"><div class="step-title">Calculer la statistique de test</div><p>Transformer les donnees en une valeur (t, $\chi^2$, F...) qui suit une loi connue sous H0.</p></div></div>
+          <div class="step" data-step="4"><div class="step-content"><div class="step-title">Decider</div><p>Comparer la p-value a $\alpha$. Si p-value &lt; $\alpha$, on rejette H0 : le resultat est <strong>statistiquement significatif</strong>.</p></div></div>
+        </div>
+        <div class="concepts-grid">
+          <div class="concept-card" style="border-top: 3px solid var(--accent4);"><div class="concept-title">Erreur de type I ($\alpha$)</div><div class="concept-desc">Rejeter H0 alors qu'elle est vraie (faux positif). Probabilite = $\alpha$.</div></div>
+          <div class="concept-card" style="border-top: 3px solid var(--accent3);"><div class="concept-title">Erreur de type II ($\beta$)</div><div class="concept-desc">Ne pas rejeter H0 alors qu'elle est fausse (faux negatif). Puissance = $1 - \beta$.</div></div>
+        </div>
+        <div class="info-box warning">
+          <strong>p-value :</strong> Probabilite d'obtenir un resultat au moins aussi extreme que celui observe, <strong>en supposant que H0 est vraie</strong>. Ce n'est PAS la probabilite que H0 soit vraie.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TEST T ═══ -->
+    <div class="section-block" id="s-test-t">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III / Tests <span>/ Test t de Student</span></div><h2>Test t de Student</h2></div></div>
+      <div class="content-area">
+        <p>Le <strong>test t</strong> permet de comparer une moyenne a une valeur theorique, ou de comparer les moyennes de deux groupes.</p>
+        <div class="formula-box">
+          <strong>Un echantillon :</strong> $t = \frac{\bar{x} - \mu_0}{s / \sqrt{n}}$ &emsp;&emsp; <strong>ddl :</strong> $n - 1$<br><br>
+          <strong>Deux echantillons independants :</strong> $t = \frac{\bar{x}_1 - \bar{x}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Test t — Un echantillon</div>
+          <p>Comparez la moyenne de votre echantillon a une valeur theorique $\mu_0$ :</p>
+          <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px;">
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Donnees de l'echantillon</label><textarea class="data-input" id="ttest-data" rows="2">23.1, 25.4, 22.8, 24.6, 26.1, 23.9, 25.2, 24.0, 22.5, 25.8, 24.3, 23.7</textarea></div>
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Valeur theorique mu0</label><input class="data-input" id="ttest-mu0" value="25" style="min-height:auto;"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="runTTest1()">Executer le test t</button></div>
+          <div class="results-grid" id="ttest1-results"></div>
+          <div class="chart-wrapper"><canvas id="ttest1-chart"></canvas></div>
+          <div id="ttest1-conclusion" style="margin-top:10px;"></div>
+        </div>
+        <div class="interactive" style="margin-top:20px;">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Test t — Deux echantillons independants</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Groupe 1</label><textarea class="data-input" id="ttest2-g1" rows="2">14.2, 15.1, 14.8, 15.3, 14.5, 15.0, 14.9, 15.2</textarea></div>
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Groupe 2</label><textarea class="data-input" id="ttest2-g2" rows="2">16.1, 15.8, 16.3, 15.9, 16.5, 16.0, 15.7, 16.2</textarea></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="runTTest2()">Comparer les deux groupes</button></div>
+          <div class="results-grid" id="ttest2-results"></div>
+          <div id="ttest2-conclusion" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CHI-DEUX ═══ -->
+    <div class="section-block" id="s-test-chi2">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III / Tests <span>/ Test du Chi-deux</span></div><h2>Test du Chi-deux ($\chi^2$)</h2></div></div>
+      <div class="content-area">
+        <p>Le <strong>test du Chi-deux</strong> permet de tester l'independance entre deux variables qualitatives, ou la conformite d'une distribution observee a une distribution theorique.</p>
+        <div class="formula-box">
+          $\chi^2 = \sum \frac{(O_i - E_i)^2}{E_i}$<br><br>
+          Ou $O_i$ = effectif observe, $E_i$ = effectif theorique &emsp;|&emsp; $\text{ddl} = (r-1)(c-1)$ pour un tableau $r \times c$
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Test Chi-deux d'adequation</div>
+          <p>Comparez des effectifs observes a des effectifs theoriques :</p>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Effectifs observes</label><textarea class="data-input" id="chi2-obs" rows="1">50, 30, 20</textarea></div>
+            <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Effectifs theoriques</label><textarea class="data-input" id="chi2-exp" rows="1">40, 35, 25</textarea></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="runChi2()">Calculer Chi-deux</button></div>
+          <div class="results-grid" id="chi2-results"></div>
+          <div class="chart-wrapper"><canvas id="chi2-chart"></canvas></div>
+          <div id="chi2-conclusion" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ANOVA ═══ -->
+    <div class="section-block" id="s-anova">
+      <div class="page-header"><div><div class="breadcrumb">Chapitre III / Tests <span>/ ANOVA</span></div><h2>Analyse de variance (ANOVA)</h2></div></div>
+      <div class="content-area">
+        <p>L'<strong>ANOVA</strong> (ANalysis Of VAriance) permet de comparer les moyennes de <strong>trois groupes ou plus</strong>. Elle decompose la variabilite totale en variabilite inter-groupes et intra-groupes.</p>
+        <div class="formula-box">
+          $F = \frac{\text{Variance inter-groupes}}{\text{Variance intra-groupes}} = \frac{MSB}{MSW}$<br><br>
+          $MSB = \frac{SSB}{k-1}$ &emsp;|&emsp; $MSW = \frac{SSW}{N-k}$ &emsp;|&emsp; $\text{ddl} = (k-1, N-k)$
+        </div>
+        <div class="info-box">
+          <strong>Hypotheses :</strong><br>
+          H0 : $\mu_1 = \mu_2 = ... = \mu_k$ (toutes les moyennes sont egales)<br>
+          H1 : Au moins une moyenne differe
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">ANOVA a un facteur</div>
+          <p>Entrez les donnees de chaque groupe (un groupe par ligne) :</p>
+          <div><label style="font-size:10px; font-weight:600; color:var(--dim);">Groupe 1</label><textarea class="data-input" id="anova-g1" rows="1">6.2, 7.1, 6.8, 7.3, 6.5</textarea></div>
+          <div style="margin-top:6px;"><label style="font-size:10px; font-weight:600; color:var(--dim);">Groupe 2</label><textarea class="data-input" id="anova-g2" rows="1">8.1, 7.8, 8.3, 7.9, 8.5</textarea></div>
+          <div style="margin-top:6px;"><label style="font-size:10px; font-weight:600; color:var(--dim);">Groupe 3</label><textarea class="data-input" id="anova-g3" rows="1">5.4, 5.8, 5.1, 5.6, 5.3</textarea></div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="runANOVA()">Executer l'ANOVA</button></div>
+          <div id="anova-table"></div>
+          <div class="results-grid" id="anova-results"></div>
+          <div class="chart-wrapper"><canvas id="anova-chart"></canvas></div>
+          <div id="anova-conclusion" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CALCULATEUR ═══ -->
+    <div class="section-block" id="s-calculateur">
+      <div class="page-header"><div><div class="breadcrumb">Outils <span>/ Calculateur complet</span></div><h2>Calculateur statistique complet</h2></div></div>
+      <div class="content-area">
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Analyse complete d'une serie statistique</div>
+          <p>Entrez vos donnees separees par des virgules :</p>
+          <textarea class="data-input" id="calc-data" rows="3">65, 66, 67, 68, 68, 69, 70, 70, 71, 71, 71, 72, 73, 74, 74, 75, 75, 75</textarea>
+          <div class="btn-row"><button class="btn btn-primary" onclick="fullAnalysis()">Analyse complete</button></div>
+          <div class="tabs" id="calc-tabs" style="display:none;">
+            <button class="tab-btn active" onclick="showTab('tab-position')">Position</button>
+            <button class="tab-btn" onclick="showTab('tab-dispersion')">Dispersion</button>
+            <button class="tab-btn" onclick="showTab('tab-forme')">Forme</button>
+            <button class="tab-btn" onclick="showTab('tab-graph')">Graphiques</button>
+          </div>
+          <div class="tab-content active" id="tab-position"><div class="results-grid" id="calc-position"></div></div>
+          <div class="tab-content" id="tab-dispersion"><div class="results-grid" id="calc-dispersion"></div></div>
+          <div class="tab-content" id="tab-forme"><div class="results-grid" id="calc-forme"></div></div>
+          <div class="tab-content" id="tab-graph">
+            <div class="chart-wrapper"><canvas id="calc-histo"></canvas></div>
+            <div class="chart-wrapper"><canvas id="calc-boxplot"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TABLE Z ═══ -->
+    <div class="section-block" id="s-table-z">
+      <div class="page-header"><div><div class="breadcrumb">Outils / Tables <span>/ Table Z</span></div><h2>Table de la loi Normale centree reduite</h2></div></div>
+      <div class="content-area">
+        <p>Entrez une valeur de Z pour obtenir P(Z &le; z), ou cherchez directement dans la table ci-dessous. La table donne la probabilite cumulee a gauche $\Phi(z) = P(Z \le z)$.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculateur de la table Z</div>
+          <div class="controls">
+            <div class="control-group"><label>Valeur Z</label><input class="data-input" id="ztable-input" value="1.96" style="min-height:auto;font-size:16px;text-align:center;"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="calcZTable()">Calculer</button></div>
+          <div class="results-grid" id="ztable-results"></div>
+        </div>
+        <h3>Table Z (valeurs positives)</h3>
+        <p style="font-size:12px;">Deuxieme decimale de Z en colonnes (0.00 a 0.09), premiere decimale en lignes (0.0 a 3.5).</p>
+        <div style="overflow-x:auto;" id="ztable-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══ TABLE T ═══ -->
+    <div class="section-block" id="s-table-t">
+      <div class="page-header"><div><div class="breadcrumb">Outils / Tables <span>/ Table t Student</span></div><h2>Table t de Student — Valeurs critiques</h2></div></div>
+      <div class="content-area">
+        <p>La table donne les valeurs critiques $t_{\alpha, \text{ddl}}$ pour un test bilateral. Si $|t_{obs}| > t_{critique}$, on rejette H0 au seuil $\alpha$.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculateur t critique</div>
+          <div class="controls">
+            <div class="control-group"><label>Degres de liberte (ddl)</label><input class="data-input" id="ttable-df" value="10" style="min-height:auto;font-size:16px;text-align:center;"></div>
+            <div class="control-group"><label>Alpha (bilateral)</label><input class="data-input" id="ttable-alpha" value="0.05" style="min-height:auto;font-size:16px;text-align:center;"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="calcTTable()">Calculer t critique</button></div>
+          <div class="results-grid" id="ttable-results"></div>
+        </div>
+        <h3>Table des valeurs critiques</h3>
+        <div style="overflow-x:auto;" id="ttable-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══ TABLE CHI2 ═══ -->
+    <div class="section-block" id="s-table-chi2">
+      <div class="page-header"><div><div class="breadcrumb">Outils / Tables <span>/ Table Chi-deux</span></div><h2>Table du Chi-deux — Valeurs critiques</h2></div></div>
+      <div class="content-area">
+        <p>La table donne les valeurs critiques $\chi^2_{\alpha, \text{ddl}}$. Si $\chi^2_{obs} > \chi^2_{critique}$, on rejette H0 au seuil $\alpha$.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculateur Chi-deux critique</div>
+          <div class="controls">
+            <div class="control-group"><label>Degres de liberte</label><input class="data-input" id="chi2table-df" value="5" style="min-height:auto;font-size:16px;text-align:center;"></div>
+            <div class="control-group"><label>Alpha</label><input class="data-input" id="chi2table-alpha" value="0.05" style="min-height:auto;font-size:16px;text-align:center;"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="calcChi2Table()">Calculer</button></div>
+          <div class="results-grid" id="chi2table-results"></div>
+        </div>
+        <h3>Table des valeurs critiques</h3>
+        <div style="overflow-x:auto;" id="chi2table-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══ QUIZ GENERAL ═══ -->
+    <div class="section-block" id="s-quiz-general">
+      <div class="page-header"><div><div class="breadcrumb">Outils / Exercices <span>/ Quiz general</span></div><h2>Quiz de biostatistiques — 10 points</h2></div></div>
+      <div class="content-area">
+        <p>Ce quiz genere aleatoirement 10 questions couvrant l'ensemble du cours. Repondez a chacune, puis consultez votre score et les corrections.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Quiz aleatoire</div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="generateQuiz()">Generer un nouveau quiz</button>
+            <button class="btn btn-secondary" id="quiz-submit-btn" onclick="submitQuiz()" style="display:none;">Soumettre mes reponses</button>
+            <button class="btn btn-secondary" id="quiz-pdf-btn" onclick="downloadQuizPDF()" style="display:none;">Telecharger en PDF</button>
+          </div>
+          <div id="quiz-area"></div>
+          <div id="quiz-score" style="margin-top:16px;"></div>
+          <div id="quiz-corrections" style="margin-top:16px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TABLE F ═══ -->
+    <div class="section-block" id="s-table-f">
+      <div class="page-header"><div><div class="breadcrumb">Outils / Tables <span>/ Table F Fisher</span></div><h2>Table F de Fisher — Valeurs critiques</h2></div></div>
+      <div class="content-area">
+        <p>La table donne les valeurs critiques $F_{\alpha, \text{ddl1}, \text{ddl2}}$. Si $F_{obs} > F_{critique}$, on rejette H0 au seuil $\alpha$.</p>
+        <div class="interactive">
+          <div class="interactive-label">Interactif</div>
+          <div class="interactive-title">Calculateur F critique</div>
+          <div class="controls">
+            <div class="control-group"><label>ddl1 (numerateur)</label><input class="data-input" id="ftable-df1" value="3" style="min-height:auto;font-size:16px;text-align:center;"></div>
+            <div class="control-group"><label>ddl2 (denominateur)</label><input class="data-input" id="ftable-df2" value="20" style="min-height:auto;font-size:16px;text-align:center;"></div>
+            <div class="control-group"><label>Alpha</label><input class="data-input" id="ftable-alpha" value="0.05" style="min-height:auto;font-size:16px;text-align:center;"></div>
+          </div>
+          <div class="btn-row"><button class="btn btn-primary" onclick="calcFTable()">Calculer F critique</button></div>
+          <div class="results-grid" id="ftable-results"></div>
+        </div>
+        <h3>Table F (alpha = 0.05)</h3>
+        <p style="font-size:12px;">ddl1 en colonnes, ddl2 en lignes.</p>
+        <div style="overflow-x:auto;" id="ftable-container"></div>
+      </div>
+    </div>
+
+    <!-- ═══ JEU DE LA VIE DE CONWAY ═══ -->
+    <div class="section-block" id="s-game-of-life">
+      <div class="page-header"><div><div class="breadcrumb">Simulations <span>/ Jeu de la Vie de Conway</span></div><h2>Jeu de la Vie de Conway</h2></div></div>
+      <div class="content-area">
+        <p>Le <strong>Jeu de la Vie</strong> (Conway, 1970) est un automate cellulaire ou des cellules sur une grille naissent, survivent ou meurent selon des regles simples. Il illustre le concept d'<strong>emergence</strong> : des comportements complexes et impredictibles surgissent de regles locales elementaires.</p>
+        <div class="info-box">
+          <strong>Regles de Conway :</strong><br>
+          1. Une cellule <em>vivante</em> avec 2 ou 3 voisins survit.<br>
+          2. Une cellule <em>vivante</em> avec moins de 2 ou plus de 3 voisins meurt (sous-population ou surpopulation).<br>
+          3. Une cellule <em>morte</em> avec exactement 3 voisins vivants devient vivante (reproduction).
+        </div>
+        <div class="info-box success">
+          <strong>Lien ecologique :</strong> Ce modele illustre la <strong>variabilite spatiale</strong> des populations : la survie d'un individu depend de la densite locale de ses voisins. Les patrons emergents (oscillateurs, planeurs) rappellent les dynamiques de metapopulations et la structuration spatiale des habitats. La variabilite observee entre simulations est analogue a la <strong>variance</strong> inter-replicas en ecologie experimentale.
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Simulation</div>
+          <div class="interactive-title">Automate cellulaire — Jeu de la Vie</div>
+          <div class="controls">
+            <div class="control-group">
+              <label>Vitesse (ms/generation)</label>
+              <input type="range" id="gol-speed" min="50" max="1000" value="150" step="50" oninput="document.getElementById('gol-speed-val').textContent=this.value+'ms'">
+              <div class="control-value" id="gol-speed-val">150ms</div>
+            </div>
+            <div class="control-group">
+              <label>Densite initiale (%)</label>
+              <input type="range" id="gol-density" min="10" max="60" value="30" step="5" oninput="document.getElementById('gol-density-val').textContent=this.value+'%'">
+              <div class="control-value" id="gol-density-val">30%</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="gol-play-btn" onclick="golTogglePlay()">Lancer</button>
+            <button class="btn btn-secondary" onclick="golReset()">Reinitialiser</button>
+            <button class="btn btn-secondary" onclick="golStep()">Pas a pas</button>
+            <button class="btn btn-secondary" onclick="golClear()">Vider</button>
+            <button class="btn btn-secondary" onclick="golPreset('glider')">Planeur</button>
+            <button class="btn btn-secondary" onclick="golPreset('blinker')">Oscillateur</button>
+          </div>
+          <div id="gol-p5-container" style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:0;margin:12px 0;overflow:hidden;min-height:200px;"></div>
+          <div class="results-grid" id="gol-stats"></div>
+          <div class="info-box warning" style="margin-top:12px;">
+            <strong>Cliquez sur la grille</strong> pour dessiner des cellules vivantes. Observez comment de petits changements initiaux produisent des trajectoires radicalement differentes — c'est la <strong>sensibilite aux conditions initiales</strong>, source de variabilite en ecologie.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MARCHE ALEATOIRE ═══ -->
+    <div class="section-block" id="s-random-walk">
+      <div class="page-header"><div><div class="breadcrumb">Simulations <span>/ Marche aleatoire</span></div><h2>Marche aleatoire et diffusion</h2></div></div>
+      <div class="content-area">
+        <p>Une <strong>marche aleatoire</strong> (random walk) modelise le deplacement d'une particule ou d'un organisme qui se deplace de facon aleatoire dans l'espace. Elle est fondamentale pour comprendre la <strong>diffusion</strong> de polluants, la dispersion larvaire ou la colonisation d'un habitat.</p>
+        <div class="formula-box">
+          <strong>Deplacement quadratique moyen :</strong> $\langle r^2 \rangle = 4Dt$ &emsp; (en 2D)<br><br>
+          Ou $D$ est le coefficient de diffusion et $t$ le temps. L'ecart-type de la position croit comme $\sigma \propto \sqrt{t}$.
+        </div>
+        <div class="info-box">
+          <strong>Lien statistique :</strong> La distribution des positions finales suit une <strong>loi normale</strong> (theoreme central limite). La <strong>variance</strong> de la position augmente lineairement avec le temps : $\sigma^2 = 2Dt$. L'ecart-type mesure l'etendue de la zone de diffusion — plus il est grand, plus la dispersion est importante.
+        </div>
+        <div class="interactive">
+          <div class="interactive-label">Simulation</div>
+          <div class="interactive-title">Diffusion d'un polluant ou d'une espece</div>
+          <div class="controls">
+            <div class="control-group">
+              <label>Nombre de particules</label>
+              <input type="range" id="rw-n" min="5" max="100" value="30" step="5" oninput="document.getElementById('rw-n-val').textContent=this.value">
+              <div class="control-value" id="rw-n-val">30</div>
+            </div>
+            <div class="control-group">
+              <label>Pas de deplacement</label>
+              <input type="range" id="rw-step" min="1" max="15" value="5" step="1" oninput="document.getElementById('rw-step-val').textContent=this.value">
+              <div class="control-value" id="rw-step-val">5</div>
+            </div>
+            <div class="control-group">
+              <label>Vitesse (ms/pas)</label>
+              <input type="range" id="rw-speed" min="50" max="500" value="100" step="50" oninput="document.getElementById('rw-speed-val').textContent=this.value+'ms'">
+              <div class="control-value" id="rw-speed-val">100ms</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="rw-play-btn" onclick="rwTogglePlay()">Lancer</button>
+            <button class="btn btn-secondary" onclick="rwReset()">Reinitialiser</button>
+          </div>
+          <div id="rw-p5-container" style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:0;margin:12px 0;overflow:hidden;min-height:180px;"></div>
+          <div class="results-grid" id="rw-stats"></div>
+          <div class="chart-wrapper" style="min-height:180px;">
+            <canvas id="rw-hist"></canvas>
+          </div>
+          <div class="info-box success" style="margin-top:12px;">
+            <strong>Observation :</strong> La distribution des positions finales (histogramme) converge vers une <strong>courbe de Gauss</strong> au fil du temps. La variance augmente avec le nombre de pas : c'est le fondement mathematique de la diffusion en ecologie et en physique.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TP CAPTURE-MARQUAGE-RECAPTURE ═══ -->
+    <div class="section-block" id="s-cmr">
+      <div class="page-header"><div><div class="breadcrumb">Simulations <span>/ TP Capture-Marquage-Recapture</span></div><h2>TP virtuel — Capture-Marquage-Recapture</h2></div></div>
+      <div class="content-area">
+
+        <!-- Contexte écologique -->
+        <div class="card" style="border-top:3px solid var(--accent2); background:linear-gradient(135deg,#ecfdf5,#f0fdf4);">
+          <div class="card-title" style="color:var(--accent2);">Contexte ecologique — Ancrage local</div>
+          <p style="margin-bottom:6px;">Ce TP virtuel simule l'estimation de la taille d'une population de <strong><em>Salmo trutta macrostigma</em></strong> (truite macrostigma), sous-espece endemique des cours d'eau corses, dans un ecosysteme d'eau douce favorable a son developpement. Les prelevements sont autorises en Corse dans le cadre de protocoles scientifiques valides.</p>
+          <p style="font-size:12px; color:var(--dim); margin:0;">Habitat : ruisseaux et rivieres a eaux fraiches, bien oxygeneees, a fond caillouteux — caracteristiques des bassins versants montagnards corses (Tavignano, Golo, Rizzanese).</p>
+        </div>
+
+        <!-- Principe CMR -->
+        <h3>Principe de la methode CMR</h3>
+        <p>La methode de <strong>Capture-Marquage-Recapture</strong> (CMR) permet d'estimer la taille d'une population animale sans avoir a capturer tous les individus. Elle repose sur l'estimateur de <strong>Lincoln-Petersen</strong>.</p>
+        <div class="formula-box">
+          <strong>Estimateur de Petersen :</strong> $\hat{N} = \frac{C_1 \times C_2}{R}$<br><br>
+          <strong>Estimateur de Chapman (corrige) :</strong> $\hat{N} = \frac{(C_1 + 1)(C_2 + 1)}{R + 1} - 1$<br><br>
+          $C_1$ = individus captures et marques &emsp;|&emsp; $C_2$ = individus recaptures &emsp;|&emsp; $R$ = individus marques dans $C_2$
+        </div>
+        <div class="formula-box">
+          <strong>Intervalle de confiance a 95% :</strong> $\hat{N} \pm 1{,}96 \times \sqrt{\frac{C_1^2 \cdot C_2 \cdot (C_2 - R)}{R^3}}$
+        </div>
+        <div class="info-box warning">
+          <strong>Hypotheses de la methode :</strong><br>
+          1. La population est <strong>fermee</strong> (pas de naissances, morts, migrations entre les deux sessions).<br>
+          2. Le marquage n'affecte pas le comportement ni la survie des individus.<br>
+          3. Les individus marques se melangent <strong>aleatoirement</strong> dans la population.<br>
+          4. Chaque individu a la <strong>meme probabilite</strong> d'etre capture.
+        </div>
+
+        <!-- Protocole -->
+        <h3>Protocole du TP</h3>
+        <div class="steps">
+          <div class="step" data-step="1"><div class="step-content"><div class="step-title">Phase 1 — Premiere capture</div><p>Cliquez sur les truites dans l'etang pour les capturer. Chaque truite capturee est marquee (point rouge visible). Relacher ensuite toutes les truites marquees.</p></div></div>
+          <div class="step" data-step="2"><div class="step-content"><div class="step-title">Melange</div><p>Les truites marquees se melangent aleatoirement dans la population. Cliquez sur "Melanger la population" pour simuler ce brassage.</p></div></div>
+          <div class="step" data-step="3"><div class="step-content"><div class="step-title">Phase 2 — Recapture</div><p>Cliquez a nouveau sur les truites pour effectuer la deuxieme capture. Notez combien de truites recapturees portent une marque.</p></div></div>
+          <div class="step" data-step="4"><div class="step-content"><div class="step-title">Calcul et interpretation</div><p>L'estimateur de Chapman calcule automatiquement la taille estimee de la population avec son intervalle de confiance.</p></div></div>
+        </div>
+
+        <!-- Simulation interactive -->
+        <div class="interactive">
+          <div class="interactive-label">TP Virtuel</div>
+          <div class="interactive-title">Simulation de l'etang — <em>Salmo trutta macrostigma</em></div>
+
+          <!-- Parametres -->
+          <div class="controls">
+            <div class="control-group">
+              <label>Taille reelle de la population (N)</label>
+              <input type="range" id="cmr-N" min="30" max="300" value="100" step="10" oninput="cmrUpdateParams()">
+              <div class="control-value" id="cmr-N-val">100</div>
+            </div>
+            <div class="control-group">
+              <label>Difficulte de capture (%)</label>
+              <input type="range" id="cmr-diff" min="10" max="80" value="40" step="5" oninput="cmrUpdateParams()">
+              <div class="control-value" id="cmr-diff-val">40%</div>
+            </div>
+          </div>
+
+          <!-- Boutons de phase -->
+          <div id="cmr-phase-bar" style="display:flex;align-items:center;gap:10px;margin:14px 0;flex-wrap:wrap;">
+            <div id="cmr-phase-indicator" style="font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 14px;border-radius:20px;background:var(--accent-light);color:var(--accent);">Phase 1 — Premiere capture</div>
+            <button class="btn btn-secondary" onclick="cmrNewSession()">Nouvelle session</button>
+          </div>
+          <div class="btn-row" id="cmr-btn-row">
+            <button class="btn btn-primary" id="cmr-btn-capture" onclick="cmrPhaseAction()">Capturer les truites visibles</button>
+            <button class="btn btn-secondary" id="cmr-btn-mix" onclick="cmrMix()" style="display:none;">Melanger la population</button>
+          </div>
+
+          <!-- Canvas de l'etang — p5.js -->
+          <div id="cmr-p5-container" style="border-radius:var(--radius);overflow:hidden;margin:14px 0;border:2px solid #0369a1;box-shadow:0 4px 20px rgba(3,105,161,0.3);min-height:200px;"></div>
+
+          <!-- Tableau de bord -->
+          <div class="results-grid" id="cmr-dashboard"></div>
+
+          <!-- Journal de session -->
+          <div id="cmr-log" style="background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin:12px 0;font-family:var(--mono);font-size:11px;min-height:60px;max-height:120px;overflow-y:auto;color:var(--dim);"></div>
+
+          <!-- Résultats CMR -->
+          <div id="cmr-results-block" style="display:none;">
+            <h4 style="margin-top:16px;">Resultats de l'estimation</h4>
+            <div class="results-grid" id="cmr-results"></div>
+            <div id="cmr-conclusion" style="margin-top:10px;"></div>
+            <div class="chart-wrapper" style="min-height:200px;margin-top:12px;">
+              <canvas id="cmr-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Tableau de données manuelles -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+            <div class="interactive-title" style="font-size:14px;">Calcul manuel — Entrez vos propres donnees</div>
+            <p style="font-size:12px;">Vous pouvez aussi entrer directement les valeurs issues d'un vrai protocole CMR :</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0;">
+              <div><label style="font-size:10px;font-weight:600;color:var(--dim);">C1 (marques)</label><input class="data-input" id="cmr-manual-c1" value="40" style="min-height:auto;text-align:center;font-size:16px;"></div>
+              <div><label style="font-size:10px;font-weight:600;color:var(--dim);">C2 (recaptures)</label><input class="data-input" id="cmr-manual-c2" value="35" style="min-height:auto;text-align:center;font-size:16px;"></div>
+              <div><label style="font-size:10px;font-weight:600;color:var(--dim);">R (marques dans C2)</label><input class="data-input" id="cmr-manual-r" value="14" style="min-height:auto;text-align:center;font-size:16px;"></div>
+            </div>
+            <div class="btn-row"><button class="btn btn-primary" onclick="cmrManualCalc()">Calculer l'estimation</button></div>
+            <div class="results-grid" id="cmr-manual-results"></div>
+            <div id="cmr-manual-conclusion" style="margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <!-- Fiche méthode -->
+        <div class="info-box success" style="margin-top:20px;">
+          <strong>Avantages et limites de la CMR :</strong><br>
+          <strong>Avantages :</strong> Non destructive, applicable a des populations difficiles a denombrer exhaustivement, fournit un IC statistique.<br>
+          <strong>Limites :</strong> Necessite que les hypotheses soient respectees. Si les individus marques sont plus facilement recaptures (comportement modifie), l'estimation sera biaisee vers le bas.
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<!-- Scroll to top button -->
+<button class="scroll-top" id="scroll-top" onclick="document.getElementById('main-content').scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+/* ═══════════════════════ NAVIGATION ═══════════════════════ */
+var allNavItems = document.querySelectorAll('.nav-item');
+var allSections = document.querySelectorAll('.section-block');
+var sectionOrder = [];
+allNavItems.forEach(function(item) { sectionOrder.push(item.dataset.target); });
+
+allNavItems.forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.preventDefault();
+    var target = this.dataset.target;
+    allSections.forEach(function(s) { s.classList.remove('active'); });
+    var el = document.getElementById(target);
+    if (el) el.classList.add('active');
+    allNavItems.forEach(function(n) { n.classList.remove('active'); });
+    this.classList.add('active');
+    document.getElementById('main-content').scrollTo({top: 0, behavior: 'smooth'});
+    // Update progress
+    var idx = sectionOrder.indexOf(target);
+    var pct = idx >= 0 ? Math.round((idx / (sectionOrder.length - 1)) * 100) : 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    // Close mobile sidebar
+    if (window.innerWidth <= 900) { toggleSidebar(); }
+  });
+});
+
+/* ═══════════════════════ SIDEBAR TOGGLE ═══════════════════════ */
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('mobile-overlay');
+  sb.classList.toggle('collapsed');
+  if (ov) ov.classList.toggle('active');
+}
+
+/* ═══════════════════════ SCROLL TO TOP ═══════════════════════ */
+document.getElementById('main-content').addEventListener('scroll', function() {
+  var btn = document.getElementById('scroll-top');
+  if (this.scrollTop > 300) btn.classList.add('visible');
+  else btn.classList.remove('visible');
+});
+
+/* ═══════════════════════ KEYBOARD NAVIGATION ═══════════════════════ */
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  var current = document.querySelector('.nav-item.active');
+  if (!current) return;
+  var idx = sectionOrder.indexOf(current.dataset.target);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (idx < sectionOrder.length - 1) {
+      allNavItems[idx + 1].click();
+      allNavItems[idx + 1].scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    }
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (idx > 0) {
+      allNavItems[idx - 1].click();
+      allNavItems[idx - 1].scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    }
+  }
+});
+
+/* ═══════════════════════ UTILITIES ═══════════════════════ */
+function parseData(id) {
+  return document.getElementById(id).value.split(/[,;\s]+/).map(Number).filter(function(x) { return !isNaN(x); });
+}
+function mean(a) { return a.reduce(function(s,v){return s+v;},0)/a.length; }
+function median(a) { var s=a.slice().sort(function(x,y){return x-y;}), m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function mode(a) { var f={}; a.forEach(function(v){f[v]=(f[v]||0)+1;}); var mx=Math.max.apply(null,Object.values(f)); return Object.keys(f).filter(function(k){return f[k]===mx;}).map(Number); }
+function variance(a,sample) { var m=mean(a); return a.reduce(function(r,v){return r+(v-m)*(v-m);},0)/(sample?a.length-1:a.length); }
+function stddev(a,sample) { return Math.sqrt(variance(a,sample)); }
+function quartile(a,q) { var s=a.slice().sort(function(x,y){return x-y;}), p=(s.length-1)*q, b=Math.floor(p), r=p-b; return s[b+1]!==undefined?s[b]+r*(s[b+1]-s[b]):s[b]; }
+function skewness(a) { var m=mean(a),s=stddev(a),n=a.length; return s===0?0:a.reduce(function(r,x){return r+Math.pow((x-m)/s,3);},0)/n; }
+function kurtosis(a) { var m=mean(a),s=stddev(a),n=a.length; return s===0?0:a.reduce(function(r,x){return r+Math.pow((x-m)/s,4);},0)/n-3; }
+function round(v,d) { if(d===undefined)d=2; return Math.round(v*Math.pow(10,d))/Math.pow(10,d); }
+
+var charts={};
+function getChart(id,cfg) { if(charts[id])charts[id].destroy(); charts[id]=new Chart(document.getElementById(id).getContext('2d'),cfg); return charts[id]; }
+
+/* ═══════════════════════ SAMPLING ═══════════════════════ */
+function updateSampling() { document.getElementById('pop-size-val').textContent=document.getElementById('pop-size').value; document.getElementById('sample-size-val').textContent=document.getElementById('sample-size').value; }
+function drawSampling() {
+  var N=+document.getElementById('pop-size').value, n=+document.getElementById('sample-size').value;
+  var pop=[]; for(var i=0;i<N;i++) pop.push({x:(Math.random()+Math.random()+Math.random())/3*100, y:(Math.random()+Math.random()+Math.random())/3*100, s:false});
+  var idx=new Set(); while(idx.size<Math.min(n,N)) idx.add(Math.floor(Math.random()*N)); idx.forEach(function(i){pop[i].s=true;});
+  getChart('sampling-canvas',{type:'scatter',data:{datasets:[{label:'Population',data:pop.filter(function(p){return !p.s;}),backgroundColor:'rgba(200,210,220,0.5)',pointRadius:4},{label:'Echantillon',data:pop.filter(function(p){return p.s;}),backgroundColor:'rgba(79,109,245,0.8)',pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{display:false},y:{display:false}}}});
+  var popX=pop.map(function(p){return p.x;}), echX=pop.filter(function(p){return p.s;}).map(function(p){return p.x;});
+  document.getElementById('sampling-results').innerHTML='<div class="result-item"><div class="result-label">Pop. N</div><div class="result-value">'+N+'</div></div><div class="result-item"><div class="result-label">Ech. n</div><div class="result-value">'+n+'</div></div><div class="result-item"><div class="result-label">Moy. pop.</div><div class="result-value">'+round(mean(popX))+'</div></div><div class="result-item"><div class="result-label">Moy. ech.</div><div class="result-value">'+round(mean(echX))+'</div></div>';
+}
+
+/* ═══════════════════════ QUIZ ═══════════════════════ */
+var quizData=[
+  {q:"Le nombre d'animaux par laboratoire",a:"Quantitatif discret",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"La niche ecologique principale",a:"Qualitatif nominal",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"La distance en km entre deux prelevements",a:"Quantitatif continu",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"Le temps passe a observer un comportement",a:"Quantitatif continu",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"Le nombre de freres et soeurs",a:"Quantitatif discret",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"Le degre de satisfaction (faible, moyen, eleve)",a:"Qualitatif ordinal",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"La temperature en degres C",a:"Quantitatif continu",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"Le groupe sanguin (A, B, AB, O)",a:"Qualitatif nominal",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]},
+  {q:"Le nombre de petales d'une fleur",a:"Quantitatif discret",o:["Quantitatif discret","Quantitatif continu","Qualitatif nominal","Qualitatif ordinal"]}
+]; var qi=0;
+function showQuizQuestion(){var q=quizData[qi%quizData.length]; document.getElementById('quiz-question').textContent='« '+q.q+' »'; var c=document.getElementById('quiz-answers'); c.innerHTML=''; q.o.forEach(function(o){var b=document.createElement('button'); b.className='btn btn-secondary'; b.textContent=o; b.onclick=function(){checkQuiz(o,q.a);}; c.appendChild(b);}); document.getElementById('quiz-feedback').textContent='';}
+function checkQuiz(s,c){var f=document.getElementById('quiz-feedback'); if(s===c){f.textContent='✓ Correct !';f.style.color='#10b981';}else{f.textContent='✗ Incorrect. Reponse : '+c;f.style.color='#ef4444';}}
+function nextQuizQuestion(){qi++;showQuizQuestion();}
+
+/* ═══════════════════════ FREQUENCIES ═══════════════════════ */
+function computeFrequencies(){
+  var d=parseData('freq-data'); if(!d.length)return; var f={}; d.forEach(function(v){f[v]=(f[v]||0)+1;}); var k=Object.keys(f).map(Number).sort(function(a,b){return a-b;}), N=d.length;
+  var cum=0, h='<table class="stat-table"><tr><th>xi</th><th>ni</th><th>fi</th><th>Fi cum</th></tr>';
+  k.forEach(function(v){cum+=f[v]; h+='<tr><td>'+v+'</td><td>'+f[v]+'</td><td>'+round(f[v]/N,4)+'</td><td>'+round(cum/N,4)+'</td></tr>';});
+  h+='<tr style="font-weight:700;background:#eef"><td>Total</td><td>'+N+'</td><td>1</td><td>-</td></tr></table>';
+  document.getElementById('freq-table-container').innerHTML=h;
+  document.getElementById('freq-chart-wrap').style.display='block';
+  getChart('freq-chart',{type:'bar',data:{labels:k.map(String),datasets:[{label:'Effectif',data:k.map(function(v){return f[v];}),backgroundColor:'rgba(79,109,245,0.6)',borderColor:'rgba(79,109,245,1)',borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Valeurs'}},y:{title:{display:true,text:'Effectif'},beginAtZero:true}}}});
+}
+
+/* ═══════════════════════ HISTOGRAM ═══════════════════════ */
+function buildHistogram(){
+  var d=parseData('histo-data'); if(!d.length)return; var nb=+document.getElementById('histo-bins').value, mn=Math.min.apply(null,d),mx=Math.max.apply(null,d),bw=(mx-mn)/nb;
+  var bins=[]; for(var i=0;i<nb;i++){var lo=mn+i*bw,hi=lo+bw; bins.push({lo:round(lo,1),hi:round(hi,1),mid:round((lo+hi)/2,1),c:d.filter(function(v){return i===nb-1?(v>=lo&&v<=hi):(v>=lo&&v<hi);}).length});}
+  document.getElementById('histo-info').innerHTML='<div class="result-item"><div class="result-label">n</div><div class="result-value">'+d.length+'</div></div><div class="result-item"><div class="result-label">Min</div><div class="result-value">'+mn+'</div></div><div class="result-item"><div class="result-label">Max</div><div class="result-value">'+mx+'</div></div><div class="result-item"><div class="result-label">Etendue</div><div class="result-value">'+round(mx-mn)+'</div></div><div class="result-item"><div class="result-label">Sturge</div><div class="result-value">'+Math.ceil(1+3.3*Math.log10(d.length))+'</div></div><div class="result-item"><div class="result-label">Yule</div><div class="result-value">'+Math.ceil(2.5*Math.pow(d.length,0.25))+'</div></div>';
+  getChart('histo-chart',{type:'bar',data:{labels:bins.map(function(b){return '['+b.lo+'-'+b.hi+'[';}),datasets:[{data:bins.map(function(b){return b.c;}),backgroundColor:'rgba(79,109,245,0.5)',borderColor:'rgba(79,109,245,0.9)',borderWidth:1,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,plugins:{legend:{display:false},title:{display:true,text:'Histogramme des effectifs'}},scales:{x:{title:{display:true,text:'Classes'}},y:{title:{display:true,text:'Effectif'},beginAtZero:true}}}});
+  var cf=0,t='<table class="stat-table"><tr><th>Classe</th><th>Centre</th><th>Effectif</th><th>Freq.</th><th>Freq. cum.</th></tr>';
+  bins.forEach(function(b){var fr=round(b.c/d.length,4);cf+=fr;t+='<tr><td>['+b.lo+'-'+b.hi+'[</td><td>'+b.mid+'</td><td>'+b.c+'</td><td>'+fr+'</td><td>'+round(cf,4)+'</td></tr>';});
+  document.getElementById('histo-table-container').innerHTML=t+'</table>';
+}
+
+/* ═══════════════════════ BAR CHART ═══════════════════════ */
+function buildBarChart(){
+  getChart('bar-chart',{type:'bar',data:{labels:['0','1','2','3','4','5','6','7','8','9','10'],datasets:[{label:'Nb feuilles',data:[182,98,46,28,12,5,2,1,0,1,0],backgroundColor:'rgba(16,185,129,0.6)',borderColor:'rgba(16,185,129,1)',borderWidth:1,barPercentage:0.5}]},options:{responsive:true,plugins:{title:{display:true,text:'Cecidomyie du hetre — Nombre de galles par feuille'},legend:{display:false}},scales:{x:{title:{display:true,text:'Nb galles/feuille'}},y:{title:{display:true,text:'Nb feuilles'},beginAtZero:true}}}});
+}
+
+/* ═══════════════════════ MEAN VS MEDIAN ═══════════════════════ */
+function updateMeanMedian(){
+  var base=[8,9,10,10,11,11,12,12,12,13,13,14], ext=+document.getElementById('extreme-val').value;
+  document.getElementById('extreme-val-display').textContent=ext;
+  var d=base.concat([ext]).sort(function(a,b){return a-b;}), m=mean(d), md=median(d), mo=mode(d);
+  document.getElementById('mean-median-data').textContent='Donnees : ['+d.join(', ')+']';
+  document.getElementById('mean-median-results').innerHTML='<div class="result-item"><div class="result-label">Moyenne</div><div class="result-value" style="color:#ef4444;">'+round(m)+'</div></div><div class="result-item"><div class="result-label">Mediane</div><div class="result-value" style="color:#10b981;">'+round(md)+'</div></div><div class="result-item"><div class="result-label">Mode</div><div class="result-value" style="color:#f59e0b;">'+mo.join(', ')+'</div></div><div class="result-item"><div class="result-label">Ecart</div><div class="result-value">'+round(Math.abs(m-md))+'</div></div>';
+  var f={}; d.forEach(function(v){var k=Math.round(v);f[k]=(f[k]||0)+1;}); var ks=Object.keys(f).map(Number).sort(function(a,b){return a-b;});
+  getChart('mean-median-chart',{type:'bar',data:{labels:ks.map(String),datasets:[{data:ks.map(function(k){return f[k];}),backgroundColor:ks.map(function(k){return k===ext?'rgba(239,68,68,0.6)':'rgba(200,215,230,0.7)';}),borderColor:ks.map(function(k){return k===ext?'#ef4444':'#94a3b8';}),borderWidth:1}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Valeurs'}},y:{beginAtZero:true}}}});
+}
+
+/* ═══════════════════════ BOX PLOT ═══════════════════════ */
+function buildBoxPlot(){
+  var d=parseData('boxplot-data').sort(function(a,b){return a-b;}); if(d.length<5)return;
+  var q1=quartile(d,0.25),q2=median(d),q3=quartile(d,0.75),iqr=q3-q1,wL=Math.max(d[0],q1-1.5*iqr),wH=Math.min(d[d.length-1],q3+1.5*iqr),out=d.filter(function(v){return v<wL||v>wH;}),m=mean(d);
+  document.getElementById('boxplot-results').innerHTML='<div class="result-item"><div class="result-label">Min</div><div class="result-value">'+round(d[0])+'</div></div><div class="result-item"><div class="result-label">Q1</div><div class="result-value">'+round(q1)+'</div></div><div class="result-item"><div class="result-label">Mediane</div><div class="result-value">'+round(q2)+'</div></div><div class="result-item"><div class="result-label">Q3</div><div class="result-value">'+round(q3)+'</div></div><div class="result-item"><div class="result-label">Max</div><div class="result-value">'+round(d[d.length-1])+'</div></div><div class="result-item"><div class="result-label">IQR</div><div class="result-value">'+round(iqr)+'</div></div><div class="result-item"><div class="result-label">Moyenne</div><div class="result-value">'+round(m)+'</div></div><div class="result-item"><div class="result-label">Outliers</div><div class="result-value">'+out.length+'</div></div>';
+  var cv=document.getElementById('boxplot-chart'),cx=cv.getContext('2d'); if(charts['boxplot-chart'])charts['boxplot-chart'].destroy();
+  var W=cv.parentElement.clientWidth-32,H=170; cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';cx.scale(2,2);cx.clearRect(0,0,W,H);
+  var pd=60,pW=W-2*pd,pY=H/2,bH=45,dMn=d[0]-(d[d.length-1]-d[0])*.05,dMx=d[d.length-1]+(d[d.length-1]-d[0])*.05,sc=function(v){return pd+(v-dMn)/(dMx-dMn)*pW;};
+  cx.strokeStyle='#e2e8f0';cx.lineWidth=1;cx.beginPath();cx.moveTo(pd,H-22);cx.lineTo(W-pd,H-22);cx.stroke();
+  cx.fillStyle='#718096';cx.font='10px Inter';cx.textAlign='center';var st=(dMx-dMn)/8;for(var i=0;i<=8;i++){var v=dMn+i*st,x=sc(v);cx.beginPath();cx.moveTo(x,H-22);cx.lineTo(x,H-18);cx.stroke();cx.fillText(round(v,1),x,H-6);}
+  cx.fillStyle='rgba(79,109,245,0.12)';cx.fillRect(sc(q1),pY-bH/2,sc(q3)-sc(q1),bH);cx.strokeStyle='#4f6df5';cx.lineWidth=2;cx.strokeRect(sc(q1),pY-bH/2,sc(q3)-sc(q1),bH);
+  cx.strokeStyle='#ef4444';cx.lineWidth=3;cx.beginPath();cx.moveTo(sc(q2),pY-bH/2);cx.lineTo(sc(q2),pY+bH/2);cx.stroke();
+  cx.strokeStyle='#4f6df5';cx.lineWidth=1.5;var rL=d.find(function(v){return v>=wL;})||wL,rH=d.slice().reverse().find(function(v){return v<=wH;})||wH;
+  cx.beginPath();cx.moveTo(sc(rL),pY);cx.lineTo(sc(q1),pY);cx.stroke();cx.beginPath();cx.moveTo(sc(rL),pY-9);cx.lineTo(sc(rL),pY+9);cx.stroke();
+  cx.beginPath();cx.moveTo(sc(q3),pY);cx.lineTo(sc(rH),pY);cx.stroke();cx.beginPath();cx.moveTo(sc(rH),pY-9);cx.lineTo(sc(rH),pY+9);cx.stroke();
+  cx.fillStyle='#10b981';cx.font='bold 15px Inter';cx.textAlign='center';cx.fillText('+',sc(m),pY+4);
+  cx.fillStyle='rgba(239,68,68,0.7)';out.forEach(function(v){cx.beginPath();cx.arc(sc(v),pY,4,0,Math.PI*2);cx.fill();});
+  cx.fillStyle='#1a202c';cx.font='9px IBM Plex Mono';cx.textAlign='center';cx.fillText('Q1='+round(q1,1),sc(q1),pY-bH/2-7);cx.fillText('Me='+round(q2,1),sc(q2),pY-bH/2-7);cx.fillText('Q3='+round(q3,1),sc(q3),pY-bH/2-7);
+  cx.font='9px Inter';cx.textAlign='left';cx.fillStyle='#ef4444';cx.fillText('-- Mediane',pd,12);cx.fillStyle='#10b981';cx.fillText('+ Moyenne',pd+80,12);cx.fillStyle='rgba(239,68,68,0.7)';cx.fillText('o Outliers',pd+160,12);
+}
+
+/* ═══════════════════════ DISPERSION ═══════════════════════ */
+function updateDispersion(){
+  var s1=+document.getElementById('sigma1').value,s2=+document.getElementById('sigma2').value; document.getElementById('sigma1-val').textContent=s1;document.getElementById('sigma2-val').textContent=s2;
+  var mu=50,xs=[]; for(var x=0;x<=100;x+=0.5)xs.push(x); var g=function(x,m,s){return(1/(s*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*Math.pow((x-m)/s,2));};
+  getChart('dispersion-chart',{type:'line',data:{labels:xs,datasets:[{label:'s1='+s1,data:xs.map(function(x){return g(x,mu,s1);}),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,pointRadius:0,borderWidth:2},{label:'s2='+s2,data:xs.map(function(x){return g(x,mu,s2);}),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.1)',fill:true,pointRadius:0,borderWidth:2}]},options:{responsive:true,plugins:{title:{display:true,text:'Deux distributions, meme moyenne (mu=50)'}},scales:{x:{type:'linear',ticks:{stepSize:10}},y:{beginAtZero:true}}}});
+  document.getElementById('dispersion-results').innerHTML='<div class="result-item"><div class="result-label">mu</div><div class="result-value">'+mu+'</div></div><div class="result-item"><div class="result-label">s1</div><div class="result-value" style="color:#3b82f6;">'+s1+'</div></div><div class="result-item"><div class="result-label">s2</div><div class="result-value" style="color:#ef4444;">'+s2+'</div></div><div class="result-item"><div class="result-label">CV1</div><div class="result-value">'+round(s1/mu*100)+'%</div></div><div class="result-item"><div class="result-label">CV2</div><div class="result-value">'+round(s2/mu*100)+'%</div></div>';
+}
+
+/* ═══════════════════════ GAUSS ═══════════════════════ */
+function updateGauss(){
+  var mu=+document.getElementById('gauss-mean').value,sig=+document.getElementById('gauss-sigma').value; document.getElementById('gauss-mean-val').textContent=mu;document.getElementById('gauss-sigma-val').textContent=sig;
+  var xs=[]; for(var x=mu-4*sig;x<=mu+4*sig;x+=sig/10) xs.push(round(x,1));
+  var g=function(x){return(1/(sig*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*Math.pow((x-mu)/sig,2));};
+  getChart('gauss-chart',{type:'line',data:{labels:xs,datasets:[{data:xs.map(g),borderColor:'#4f6df5',backgroundColor:function(ctx){if(!ctx.raw)return'transparent';var z=Math.abs(xs[ctx.dataIndex]-mu)/sig;return z<=1?'rgba(16,185,129,0.25)':z<=2?'rgba(245,158,11,0.2)':z<=3?'rgba(239,68,68,0.15)':'rgba(200,200,200,0.05)';},fill:true,pointRadius:0,borderWidth:2}]},options:{responsive:true,plugins:{title:{display:true,text:'Distribution Normale N('+mu+', '+sig+'²)'},legend:{display:false}},scales:{x:{type:'linear'},y:{beginAtZero:true}}}});
+  document.getElementById('gauss-results').innerHTML='<div class="result-item"><div class="result-label">mu</div><div class="result-value">'+mu+'</div></div><div class="result-item"><div class="result-label">sigma</div><div class="result-value">'+sig+'</div></div><div class="result-item"><div class="result-label">68.3%</div><div class="result-value" style="font-size:12px;">['+(mu-sig)+', '+(mu+sig)+']</div></div><div class="result-item"><div class="result-label">95.5%</div><div class="result-value" style="font-size:12px;">['+(mu-2*sig)+', '+(mu+2*sig)+']</div></div><div class="result-item"><div class="result-label">99.7%</div><div class="result-value" style="font-size:12px;">['+(mu-3*sig)+', '+(mu+3*sig)+']</div></div>';
+}
+
+/* ═══════════════════════ SHAPE ═══════════════════════ */
+function updateShape(){
+  var sk=+document.getElementById('shape-skew').value,ku=+document.getElementById('shape-kurt').value; document.getElementById('shape-skew-val').textContent=sk;document.getElementById('shape-kurt-val').textContent=ku;
+  var mu=50,sig=10,xs=[]; for(var x=0;x<=100;x+=0.5)xs.push(x);
+  var raw=xs.map(function(x){return Math.exp(-0.5*Math.pow((x-mu)/sig,2))*(1+Math.tanh(sk*(x-mu)/sig))*Math.max(0.01,1+ku*0.1*(Math.pow((x-mu)/sig,2)-1));});
+  var sm=raw.reduce(function(a,b){return a+b;},0),ys=raw.map(function(v){return v/sm*200;});
+  getChart('shape-chart',{type:'line',data:{labels:xs,datasets:[{data:ys,borderColor:'#8b5cf6',backgroundColor:'rgba(139,92,246,0.15)',fill:true,pointRadius:0,borderWidth:2}]},options:{responsive:true,plugins:{legend:{display:false},title:{display:true,text:'Forme de la distribution'}},scales:{x:{type:'linear'},y:{beginAtZero:true}}}});
+  var sL='Symetrique',kL='Mesocurtique'; if(sk>0.3)sL='Asymetrie positive';else if(sk<-0.3)sL='Asymetrie negative'; if(ku>0.5)kL='Leptocurtique';else if(ku<-0.5)kL='Platycurtique';
+  document.getElementById('shape-results').innerHTML='<div class="result-item"><div class="result-label">Asymetrie</div><div class="result-value">'+sk+'</div></div><div class="result-item"><div class="result-label">Type</div><div class="result-value" style="font-size:11px;">'+sL+'</div></div><div class="result-item"><div class="result-label">Kurtosis</div><div class="result-value">'+ku+'</div></div><div class="result-item"><div class="result-label">Type</div><div class="result-value" style="font-size:11px;">'+kL+'</div></div>';
+}
+
+/* ═══════════════════════ CORRELATION ═══════════════════════ */
+function updateCorrelation(){
+  var r=+document.getElementById('corr-r').value/100,n=+document.getElementById('corr-n').value; document.getElementById('corr-r-val').textContent=r.toFixed(2);document.getElementById('corr-n-val').textContent=n;
+  var pts=[]; for(var i=0;i<n;i++){var u1=Math.random(),u2=Math.random(),z1=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2),z2=Math.sqrt(-2*Math.log(u1))*Math.sin(2*Math.PI*u2); pts.push({x:round(50+15*z1,1),y:round(50+15*(r*z1+Math.sqrt(1-r*r)*z2),1)});}
+  getChart('corr-chart',{type:'scatter',data:{datasets:[{label:'Donnees',data:pts,backgroundColor:'rgba(79,109,245,0.5)',pointRadius:5}]},options:{responsive:true,plugins:{title:{display:true,text:'Nuage de points — r = '+r.toFixed(2)}},scales:{x:{title:{display:true,text:'X'}},y:{title:{display:true,text:'Y'}}}}});
+  var ar=Math.abs(r); var it='Aucune correlation'; if(ar>0.8)it='Forte '+(r>0?'positive':'negative');else if(ar>0.5)it='Moderee '+(r>0?'positive':'negative');else if(ar>0.2)it='Faible '+(r>0?'positive':'negative');
+  document.getElementById('corr-results').innerHTML='<div class="result-item"><div class="result-label">r</div><div class="result-value">'+r.toFixed(2)+'</div></div><div class="result-item"><div class="result-label">r2</div><div class="result-value">'+(r*r).toFixed(4)+'</div></div><div class="result-item"><div class="result-label">n</div><div class="result-value">'+n+'</div></div><div class="result-item"><div class="result-label">Interpretation</div><div class="result-value" style="font-size:10px;">'+it+'</div></div>';
+}
+
+/* ═══════════════════════ REGRESSION ═══════════════════════ */
+var rA=0,rB=0;
+function computeRegression(){
+  var xs=parseData('reg-x'),ys=parseData('reg-y'); if(xs.length<2||xs.length!==ys.length){alert('Meme nombre de valeurs requis.');return;}
+  var n=xs.length,mx=mean(xs),my=mean(ys),cov=xs.reduce(function(a,x,i){return a+(x-mx)*(ys[i]-my);},0)/n,vx=variance(xs),a=cov/vx,b=my-a*mx,r=cov/(stddev(xs)*stddev(ys)); rA=a;rB=b;
+  document.getElementById('reg-results').innerHTML='<div class="result-item"><div class="result-label">a (pente)</div><div class="result-value">'+round(a,4)+'</div></div><div class="result-item"><div class="result-label">b (ordonnee)</div><div class="result-value">'+round(b,2)+'</div></div><div class="result-item"><div class="result-label">Equation</div><div class="result-value" style="font-size:11px;">y='+round(a,2)+'x+'+round(b,2)+'</div></div><div class="result-item"><div class="result-label">r</div><div class="result-value">'+round(r,4)+'</div></div><div class="result-item"><div class="result-label">r2</div><div class="result-value">'+round(r*r,4)+'</div></div>';
+  var xMn=Math.min.apply(null,xs)-1,xMx=Math.max.apply(null,xs)+2;
+  getChart('reg-chart',{type:'scatter',data:{datasets:[{label:'Donnees',data:xs.map(function(x,i){return{x:x,y:ys[i]};}),backgroundColor:'#4f6df5',pointRadius:6},{label:'Regression',data:[{x:xMn,y:a*xMn+b},{x:xMx,y:a*xMx+b}],type:'line',borderColor:'#ef4444',borderWidth:2,pointRadius:0,fill:false}]},options:{responsive:true,plugins:{title:{display:true,text:'Regression lineaire — Moindres carres'}},scales:{x:{title:{display:true,text:'X'}},y:{title:{display:true,text:'Y'}}}}});
+  document.getElementById('reg-predict').min=Math.floor(xMn);document.getElementById('reg-predict').max=Math.ceil(xMx+5);updatePrediction();
+}
+function updatePrediction(){var x=+document.getElementById('reg-predict').value;document.getElementById('reg-predict-val').textContent=x;document.getElementById('reg-prediction').innerHTML='<div class="result-item"><div class="result-label">X</div><div class="result-value">'+x+'</div></div><div class="result-item"><div class="result-label">Y predit</div><div class="result-value" style="color:#ef4444;">'+round(rA*x+rB,2)+'</div></div>';}
+
+/* ═══════════════════════ FULL ANALYSIS ═══════════════════════ */
+function showTab(id){document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});document.getElementById(id).classList.add('active');event.target.classList.add('active');}
+function showTabD(id){document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});document.getElementById(id).classList.add('active');document.querySelector('.tab-btn[onclick*="'+id+'"]').classList.add('active');}
+
+function fullAnalysis(){
+  var d=parseData('calc-data'); if(d.length<2)return; document.getElementById('calc-tabs').style.display='flex';
+  var s=d.slice().sort(function(a,b){return a-b;}),n=d.length,m=mean(d),md=median(d),mo=mode(d),q1=quartile(d,0.25),q3=quartile(d,0.75);
+  document.getElementById('calc-position').innerHTML='<div class="result-item"><div class="result-label">N</div><div class="result-value">'+n+'</div></div><div class="result-item"><div class="result-label">Somme</div><div class="result-value">'+round(d.reduce(function(a,b){return a+b;},0))+'</div></div><div class="result-item"><div class="result-label">Moyenne</div><div class="result-value">'+round(m,4)+'</div></div><div class="result-item"><div class="result-label">Mediane</div><div class="result-value">'+round(md,4)+'</div></div><div class="result-item"><div class="result-label">Mode</div><div class="result-value">'+mo.join(', ')+'</div></div><div class="result-item"><div class="result-label">Q1</div><div class="result-value">'+round(q1,4)+'</div></div><div class="result-item"><div class="result-label">Q3</div><div class="result-value">'+round(q3,4)+'</div></div><div class="result-item"><div class="result-label">Min</div><div class="result-value">'+s[0]+'</div></div><div class="result-item"><div class="result-label">Max</div><div class="result-value">'+s[n-1]+'</div></div>';
+  var v=variance(d),sd=stddev(d),vs=variance(d,true),ss=stddev(d,true),et=s[n-1]-s[0],iq=q3-q1,cvPct=sd/m*100,em=d.reduce(function(a,x){return a+Math.abs(x-m);},0)/n;
+  document.getElementById('calc-dispersion').innerHTML='<div class="result-item"><div class="result-label">Etendue</div><div class="result-value">'+round(et,4)+'</div></div><div class="result-item"><div class="result-label">IQR</div><div class="result-value">'+round(iq,4)+'</div></div><div class="result-item"><div class="result-label">EMA</div><div class="result-value">'+round(em,4)+'</div></div><div class="result-item"><div class="result-label">Var (pop)</div><div class="result-value">'+round(v,4)+'</div></div><div class="result-item"><div class="result-label">ET (pop)</div><div class="result-value">'+round(sd,4)+'</div></div><div class="result-item"><div class="result-label">Var (ech)</div><div class="result-value">'+round(vs,4)+'</div></div><div class="result-item"><div class="result-label">ET (ech)</div><div class="result-value">'+round(ss,4)+'</div></div><div class="result-item"><div class="result-label">CV</div><div class="result-value">'+round(cvPct,2)+'%</div></div>';
+  var sk=skewness(d),ku=kurtosis(d);var sL='Symetrique',kL='Mesocurtique';if(sk>0.3)sL='Asym. positive';else if(sk<-0.3)sL='Asym. negative';if(ku>0.5)kL='Leptocurtique';else if(ku<-0.5)kL='Platycurtique';
+  document.getElementById('calc-forme').innerHTML='<div class="result-item"><div class="result-label">Asymetrie</div><div class="result-value">'+round(sk,4)+'</div></div><div class="result-item"><div class="result-label">Type</div><div class="result-value" style="font-size:11px;">'+sL+'</div></div><div class="result-item"><div class="result-label">Kurtosis</div><div class="result-value">'+round(ku,4)+'</div></div><div class="result-item"><div class="result-label">Type</div><div class="result-value" style="font-size:11px;">'+kL+'</div></div>';
+  var nb=Math.ceil(1+3.3*Math.log10(n)),bw=(s[n-1]-s[0])/nb,bins=[];for(var i=0;i<nb;i++){var lo=s[0]+i*bw,hi=lo+bw;bins.push({l:'['+round(lo,1)+'-'+round(hi,1)+'[',c:d.filter(function(x){return i===nb-1?(x>=lo&&x<=hi):(x>=lo&&x<hi);}).length});}
+  getChart('calc-histo',{type:'bar',data:{labels:bins.map(function(b){return b.l;}),datasets:[{data:bins.map(function(b){return b.c;}),backgroundColor:'rgba(79,109,245,0.5)',borderColor:'#4f6df5',borderWidth:1,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,plugins:{legend:{display:false},title:{display:true,text:'Histogramme'}},scales:{y:{beginAtZero:true}}}});
+  (function(){
+    var cv2=document.getElementById('calc-boxplot'),cx2=cv2.getContext('2d');if(charts['calc-boxplot'])charts['calc-boxplot'].destroy();delete charts['calc-boxplot'];
+    var W2=cv2.parentElement.clientWidth-32,H2=130;cv2.width=W2*2;cv2.height=H2*2;cv2.style.width=W2+'px';cv2.style.height=H2+'px';cx2.scale(2,2);cx2.clearRect(0,0,W2,H2);
+    var pd2=55,pW2=W2-2*pd2,pY2=H2/2,bH2=36,wL2=Math.max(s[0],q1-1.5*iq),wH2=Math.min(s[n-1],q3+1.5*iq),dMn2=s[0]-et*.05,dMx2=s[n-1]+et*.05,sc2=function(v2){return pd2+(v2-dMn2)/(dMx2-dMn2)*pW2;};
+    cx2.fillStyle='rgba(79,109,245,0.12)';cx2.fillRect(sc2(q1),pY2-bH2/2,sc2(q3)-sc2(q1),bH2);cx2.strokeStyle='#4f6df5';cx2.lineWidth=2;cx2.strokeRect(sc2(q1),pY2-bH2/2,sc2(q3)-sc2(q1),bH2);
+    cx2.strokeStyle='#ef4444';cx2.lineWidth=3;cx2.beginPath();cx2.moveTo(sc2(md),pY2-bH2/2);cx2.lineTo(sc2(md),pY2+bH2/2);cx2.stroke();
+    cx2.strokeStyle='#4f6df5';cx2.lineWidth=1.5;var rL2=s.find(function(v2){return v2>=wL2;})||wL2,rH2=[].concat(s).reverse().find(function(v2){return v2<=wH2;})||wH2;
+    cx2.beginPath();cx2.moveTo(sc2(rL2),pY2);cx2.lineTo(sc2(q1),pY2);cx2.stroke();cx2.beginPath();cx2.moveTo(sc2(rL2),pY2-7);cx2.lineTo(sc2(rL2),pY2+7);cx2.stroke();
+    cx2.beginPath();cx2.moveTo(sc2(q3),pY2);cx2.lineTo(sc2(rH2),pY2);cx2.stroke();cx2.beginPath();cx2.moveTo(sc2(rH2),pY2-7);cx2.lineTo(sc2(rH2),pY2+7);cx2.stroke();
+    cx2.fillStyle='#10b981';cx2.font='bold 13px Inter';cx2.textAlign='center';cx2.fillText('+',sc2(m),pY2+4);
+    cx2.fillStyle='#1a202c';cx2.font='9px IBM Plex Mono';cx2.fillText('Q1='+round(q1,1),sc2(q1),pY2-bH2/2-5);cx2.fillText('Me='+round(md,1),sc2(md),pY2-bH2/2-5);cx2.fillText('Q3='+round(q3,1),sc2(q3),pY2-bH2/2-5);
+  })();
+  showTabD('tab-position');
+}
+
+/* ═══════════════════════ CHAPITRE III — FONCTIONS ═══════════════════════ */
+function normalCDF(z) {
+  if(z<-6) return 0; if(z>6) return 1;
+  var a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  var sign=1; if(z<0) sign=-1;
+  z=Math.abs(z)/Math.sqrt(2);
+  var t=1.0/(1.0+p*z);
+  var y=1.0-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-z*z);
+  return 0.5*(1.0+sign*y);
+}
+function normalInv(p) {
+  if(p<=0) return -6; if(p>=1) return 6;
+  if(p<0.5) return -normalInv(1-p);
+  var t=Math.sqrt(-2*Math.log(1-p));
+  var c0=2.515517,c1=0.802853,c2=0.010328,d1=1.432788,d2=0.189269,d3=0.001308;
+  return t-(c0+c1*t+c2*t*t)/(1+d1*t+d2*t*t+d3*t*t*t);
+}
+function studentCDF(t, df) {
+  if(df>=30) return normalCDF(t);
+  var z=t*(1-1/(4*df))/Math.sqrt(1+t*t/(2*df));
+  return normalCDF(z);
+}
+function tCritical(alpha, df) {
+  if(df>=30) return normalInv(1-alpha/2);
+  var z=normalInv(1-alpha/2);
+  return z+(z*z*z+z)/(4*df)+(5*z*z*z*z*z+16*z*z*z+3*z)/(96*df*df);
+}
+function chi2CDF(x, df) {
+  if(x<=0) return 0;
+  var z=Math.pow(x/df,1/3)-(1-2/(9*df));
+  z/=Math.sqrt(2/(9*df));
+  return normalCDF(z);
+}
+function fCDF(f, d1, d2) {
+  if(f<=0) return 0;
+  var z=(Math.pow(f*d1/d2,1/3)*(1-2/(9*d2))-1+2/(9*d1))/Math.sqrt(2/(9*d1)+Math.pow(f*d1/d2,2/3)*2/(9*d2));
+  return 1-normalCDF(z);
+}
+
+function runTCL() {
+  var n=+document.getElementById('tcl-n').value, rep=+document.getElementById('tcl-rep').value;
+  var means=[];
+  for(var r=0;r<rep;r++){var s=0;for(var i=0;i<n;i++)s+=Math.random();means.push(s/n);}
+  var mu=mean(means),sd2=stddev(means);
+  var nb=30,mn=Math.min.apply(null,means),mx=Math.max.apply(null,means),bw=(mx-mn)/nb,bins=[];
+  for(var j=0;j<nb;j++){var lo=mn+j*bw,hi=lo+bw;bins.push({l:round(lo+bw/2,3),c:means.filter(function(v){return j===nb-1?(v>=lo&&v<=hi):(v>=lo&&v<hi);}).length});}
+  getChart('tcl-chart',{type:'bar',data:{labels:bins.map(function(b){return b.l;}),datasets:[{data:bins.map(function(b){return b.c;}),backgroundColor:'rgba(79,109,245,0.5)',borderColor:'#4f6df5',borderWidth:1,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,plugins:{legend:{display:false},title:{display:true,text:'Distribution des moyennes (n='+n+', '+rep+' repetitions)'}},scales:{y:{beginAtZero:true}}}});
+  document.getElementById('tcl-results').innerHTML='<div class="result-item"><div class="result-label">Moy. theorique</div><div class="result-value">0.500</div></div><div class="result-item"><div class="result-label">Moy. observee</div><div class="result-value">'+round(mu,4)+'</div></div><div class="result-item"><div class="result-label">SE theorique</div><div class="result-value">'+round(1/Math.sqrt(12*n),4)+'</div></div><div class="result-item"><div class="result-label">SE observee</div><div class="result-value">'+round(sd2,4)+'</div></div>';
+}
+
+function updateZCalc() {
+  var zRaw=+document.getElementById('z-val').value, z=zRaw/100;
+  document.getElementById('z-val-display').textContent=z.toFixed(2);
+  var pLeft=normalCDF(z),pRight=1-pLeft,pBetween=normalCDF(Math.abs(z))-normalCDF(-Math.abs(z));
+  var xs=[],ys=[],fillLeft=[],fillBetween=[];
+  for(var x=-4;x<=4;x+=0.05){xs.push(round(x,2));var y2=(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*x*x);ys.push(y2);fillLeft.push(x<=z?y2:null);fillBetween.push(x>=-Math.abs(z)&&x<=Math.abs(z)?y2:null);}
+  getChart('z-chart',{type:'line',data:{labels:xs,datasets:[{data:ys,borderColor:'#4f6df5',borderWidth:2,pointRadius:0,fill:false},{label:'P(Z<='+z.toFixed(2)+')',data:fillLeft,borderColor:'transparent',backgroundColor:'rgba(239,68,68,0.3)',pointRadius:0,fill:true},{label:'P(-|z|<Z<|z|)',data:fillBetween,borderColor:'transparent',backgroundColor:'rgba(16,185,129,0.25)',pointRadius:0,fill:true}]},options:{responsive:true,plugins:{title:{display:true,text:'Loi Normale centree reduite N(0,1)'},legend:{position:'bottom',labels:{font:{size:10}}}},scales:{x:{type:'linear',title:{display:true,text:'Z'}},y:{beginAtZero:true}}}});
+  document.getElementById('z-results').innerHTML='<div class="result-item"><div class="result-label">Z</div><div class="result-value">'+z.toFixed(2)+'</div></div><div class="result-item"><div class="result-label">P(Z &le; z)</div><div class="result-value" style="color:#ef4444;">'+round(pLeft,4)+'</div></div><div class="result-item"><div class="result-label">P(Z &gt; z)</div><div class="result-value">'+round(pRight,4)+'</div></div><div class="result-item"><div class="result-label">P(-|z|&lt;Z&lt;|z|)</div><div class="result-value" style="color:#10b981;">'+round(pBetween,4)+'</div></div>';
+}
+
+function updateIC() {
+  var xbar=+document.getElementById('ic-mean').value,s=+document.getElementById('ic-sd').value,n=+document.getElementById('ic-n').value;
+  document.getElementById('ic-mean-val').textContent=xbar;document.getElementById('ic-sd-val').textContent=s;document.getElementById('ic-n-val').textContent=n;
+  var se=s/Math.sqrt(n);
+  var levels=[{name:'90%',alpha:0.10},{name:'95%',alpha:0.05},{name:'99%',alpha:0.01}];
+  var html='';
+  levels.forEach(function(lv){var tc=tCritical(lv.alpha,n-1);var lo=xbar-tc*se,hi=xbar+tc*se;html+='<div class="result-item"><div class="result-label">IC '+lv.name+'</div><div class="result-value" style="font-size:11px;">['+round(lo,2)+' ; '+round(hi,2)+']</div></div>';});
+  html+='<div class="result-item"><div class="result-label">SE</div><div class="result-value">'+round(se,3)+'</div></div>';
+  document.getElementById('ic-results').innerHTML=html;
+  var tc95=tCritical(0.05,n-1),lo95=xbar-tc95*se,hi95=xbar+tc95*se;
+  var xs2=[],ys2=[],fill95=[];
+  for(var x=xbar-4*se;x<=xbar+4*se;x+=se/10){xs2.push(round(x,2));var y3=(1/(se*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*((x-xbar)/se)*((x-xbar)/se));ys2.push(y3);fill95.push(x>=lo95&&x<=hi95?y3:null);}
+  getChart('ic-chart',{type:'line',data:{labels:xs2,datasets:[{data:ys2,borderColor:'#4f6df5',borderWidth:2,pointRadius:0,fill:false},{label:'IC 95%',data:fill95,borderColor:'transparent',backgroundColor:'rgba(79,109,245,0.25)',pointRadius:0,fill:true}]},options:{responsive:true,plugins:{title:{display:true,text:'Distribution de la moyenne (n='+n+')'},legend:{position:'bottom'}},scales:{x:{type:'linear'},y:{beginAtZero:true}}}});
+}
+
+function runTTest1() {
+  var d=parseData('ttest-data'),mu0=+document.getElementById('ttest-mu0').value;
+  if(d.length<2) return;
+  var n=d.length,m=mean(d),s=stddev(d,true),se=s/Math.sqrt(n),t=((m-mu0)/se),df=n-1;
+  var pval=2*(1-studentCDF(Math.abs(t),df));
+  var sig=pval<0.05;
+  document.getElementById('ttest1-results').innerHTML='<div class="result-item"><div class="result-label">n</div><div class="result-value">'+n+'</div></div><div class="result-item"><div class="result-label">Moyenne</div><div class="result-value">'+round(m,3)+'</div></div><div class="result-item"><div class="result-label">ET (ech)</div><div class="result-value">'+round(s,3)+'</div></div><div class="result-item"><div class="result-label">SE</div><div class="result-value">'+round(se,3)+'</div></div><div class="result-item"><div class="result-label">t</div><div class="result-value">'+round(t,3)+'</div></div><div class="result-item"><div class="result-label">ddl</div><div class="result-value">'+df+'</div></div><div class="result-item"><div class="result-label">p-value</div><div class="result-value" style="color:'+(sig?'#ef4444':'#10b981')+';">'+round(pval,4)+'</div></div>';
+  var xs3=[],ys3=[],tFill=[];
+  for(var x=-4;x<=4;x+=0.05){xs3.push(round(x,2));var y4=(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*x*x);ys3.push(y4);tFill.push(Math.abs(x)>=Math.abs(t)?y4:null);}
+  getChart('ttest1-chart',{type:'line',data:{labels:xs3,datasets:[{data:ys3,borderColor:'#4f6df5',borderWidth:2,pointRadius:0,fill:false},{label:'Zone de rejet',data:tFill,borderColor:'transparent',backgroundColor:'rgba(239,68,68,0.3)',pointRadius:0,fill:true}]},options:{responsive:true,plugins:{title:{display:true,text:'Distribution t (ddl='+df+')'},legend:{position:'bottom'}},scales:{x:{type:'linear'},y:{beginAtZero:true}}}});
+  document.getElementById('ttest1-conclusion').innerHTML='<div class="info-box '+(sig?'warning':'success')+'"><strong>Conclusion (alpha=0.05) :</strong> '+(sig?'On <strong>rejette H0</strong>. La moyenne ('+round(m,2)+') est significativement differente de mu0='+mu0+'.':'On <strong>ne rejette pas H0</strong>. Pas de difference significative entre la moyenne ('+round(m,2)+') et mu0='+mu0+'.')+'</div>';
+}
+
+function runTTest2() {
+  var g1=parseData('ttest2-g1'),g2=parseData('ttest2-g2');
+  if(g1.length<2||g2.length<2) return;
+  var n1=g1.length,n2=g2.length,m1=mean(g1),m2=mean(g2),s1=stddev(g1,true),s2=stddev(g2,true);
+  var se2=Math.sqrt(s1*s1/n1+s2*s2/n2),t2=(m1-m2)/se2;
+  var dfNum=Math.pow(s1*s1/n1+s2*s2/n2,2),dfDen=Math.pow(s1*s1/n1,2)/(n1-1)+Math.pow(s2*s2/n2,2)/(n2-1);
+  var df2=Math.floor(dfNum/dfDen);
+  var pval2=2*(1-studentCDF(Math.abs(t2),df2));
+  var sig2=pval2<0.05;
+  document.getElementById('ttest2-results').innerHTML='<div class="result-item"><div class="result-label">n1</div><div class="result-value">'+n1+'</div></div><div class="result-item"><div class="result-label">n2</div><div class="result-value">'+n2+'</div></div><div class="result-item"><div class="result-label">Moy 1</div><div class="result-value">'+round(m1,3)+'</div></div><div class="result-item"><div class="result-label">Moy 2</div><div class="result-value">'+round(m2,3)+'</div></div><div class="result-item"><div class="result-label">t</div><div class="result-value">'+round(t2,3)+'</div></div><div class="result-item"><div class="result-label">ddl</div><div class="result-value">'+df2+'</div></div><div class="result-item"><div class="result-label">p-value</div><div class="result-value" style="color:'+(sig2?'#ef4444':'#10b981')+';">'+round(pval2,4)+'</div></div>';
+  document.getElementById('ttest2-conclusion').innerHTML='<div class="info-box '+(sig2?'warning':'success')+'"><strong>Conclusion (alpha=0.05) :</strong> '+(sig2?'On <strong>rejette H0</strong>. Les moyennes des deux groupes sont significativement differentes.':'On <strong>ne rejette pas H0</strong>. Pas de difference significative entre les deux groupes.')+'</div>';
+}
+
+function runChi2() {
+  var obs=parseData('chi2-obs'),exp=parseData('chi2-exp');
+  if(obs.length<2||obs.length!==exp.length){alert('Meme nombre de categories requis.');return;}
+  var k=obs.length,chi2=0;
+  for(var i=0;i<k;i++) chi2+=(obs[i]-exp[i])*(obs[i]-exp[i])/exp[i];
+  var df=k-1,pval=1-chi2CDF(chi2,df);
+  var sig=pval<0.05;
+  document.getElementById('chi2-results').innerHTML='<div class="result-item"><div class="result-label">Chi-deux</div><div class="result-value">'+round(chi2,3)+'</div></div><div class="result-item"><div class="result-label">ddl</div><div class="result-value">'+df+'</div></div><div class="result-item"><div class="result-label">p-value</div><div class="result-value" style="color:'+(sig?'#ef4444':'#10b981')+';">'+round(pval,4)+'</div></div>';
+  var labels2=[];for(var j=0;j<k;j++)labels2.push('Cat. '+(j+1));
+  getChart('chi2-chart',{type:'bar',data:{labels:labels2,datasets:[{label:'Observe',data:obs,backgroundColor:'rgba(79,109,245,0.6)',borderColor:'#4f6df5',borderWidth:1},{label:'Theorique',data:exp,backgroundColor:'rgba(245,158,11,0.5)',borderColor:'#f59e0b',borderWidth:1}]},options:{responsive:true,plugins:{title:{display:true,text:'Effectifs observes vs theoriques'}},scales:{y:{beginAtZero:true}}}});
+  document.getElementById('chi2-conclusion').innerHTML='<div class="info-box '+(sig?'warning':'success')+'"><strong>Conclusion (alpha=0.05) :</strong> '+(sig?'On <strong>rejette H0</strong>. La distribution observee est significativement differente de la distribution theorique.':'On <strong>ne rejette pas H0</strong>. La distribution observee est compatible avec la distribution theorique.')+'</div>';
+}
+
+function runANOVA() {
+  var groups=[parseData('anova-g1'),parseData('anova-g2'),parseData('anova-g3')].filter(function(g){return g.length>0;});
+  var k=groups.length; if(k<2) return;
+  var N=0,grandSum=0;
+  groups.forEach(function(g){N+=g.length;grandSum+=g.reduce(function(a,b){return a+b;},0);});
+  var grandMean=grandSum/N;
+  var SSB=0,SSW=0;
+  groups.forEach(function(g){var gm=mean(g);SSB+=g.length*(gm-grandMean)*(gm-grandMean);g.forEach(function(x){SSW+=(x-gm)*(x-gm);});});
+  var SST=SSB+SSW,dfB=k-1,dfW=N-k,MSB=SSB/dfB,MSW=SSW/dfW,F=MSB/MSW;
+  var pval=fCDF(F,dfB,dfW);
+  var sig=pval<0.05;
+  document.getElementById('anova-table').innerHTML='<table class="stat-table"><tr><th>Source</th><th>SS</th><th>ddl</th><th>MS</th><th>F</th><th>p-value</th></tr><tr><td>Inter-groupes</td><td>'+round(SSB,3)+'</td><td>'+dfB+'</td><td>'+round(MSB,3)+'</td><td>'+round(F,3)+'</td><td style="color:'+(sig?'#ef4444':'#10b981')+';">'+round(pval,4)+'</td></tr><tr><td>Intra-groupes</td><td>'+round(SSW,3)+'</td><td>'+dfW+'</td><td>'+round(MSW,3)+'</td><td>-</td><td>-</td></tr><tr style="font-weight:700;"><td>Total</td><td>'+round(SST,3)+'</td><td>'+(N-1)+'</td><td>-</td><td>-</td><td>-</td></tr></table>';
+  document.getElementById('anova-results').innerHTML='<div class="result-item"><div class="result-label">F</div><div class="result-value">'+round(F,3)+'</div></div><div class="result-item"><div class="result-label">p-value</div><div class="result-value" style="color:'+(sig?'#ef4444':'#10b981')+';">'+round(pval,4)+'</div></div><div class="result-item"><div class="result-label">k groupes</div><div class="result-value">'+k+'</div></div><div class="result-item"><div class="result-label">N total</div><div class="result-value">'+N+'</div></div>';
+  var colors3=['rgba(79,109,245,0.6)','rgba(16,185,129,0.6)','rgba(245,158,11,0.6)','rgba(139,92,246,0.6)'];
+  var datasets3=[];
+  groups.forEach(function(g,i){datasets3.push({label:'Groupe '+(i+1),data:g.map(function(v){return{x:i+1+(Math.random()-0.5)*0.3,y:v};}),backgroundColor:colors3[i%4],pointRadius:6});});
+  getChart('anova-chart',{type:'scatter',data:{datasets:datasets3},options:{responsive:true,plugins:{title:{display:true,text:'Repartition des valeurs par groupe'}},scales:{x:{title:{display:true,text:'Groupe'},ticks:{stepSize:1}},y:{title:{display:true,text:'Valeur'}}}}});
+  document.getElementById('anova-conclusion').innerHTML='<div class="info-box '+(sig?'warning':'success')+'"><strong>Conclusion (alpha=0.05) :</strong> '+(sig?'On <strong>rejette H0</strong>. Au moins une moyenne de groupe est significativement differente des autres.':'On <strong>ne rejette pas H0</strong>. Les moyennes des groupes ne different pas significativement.')+'</div>';
+}
+
+/* ═══════════════════════ INIT ═══════════════════════ */
+/* ═══════════════════════ TABLES STATISTIQUES ═══════════════════════ */
+
+/* --- Inverse Chi2 (approx Wilson-Hilferty) --- */
+function chi2Inv(p, df) {
+  var z = normalInv(p);
+  var x = df * Math.pow(1 - 2/(9*df) + z*Math.sqrt(2/(9*df)), 3);
+  return Math.max(0, x);
+}
+
+/* --- Inverse F (approx) --- */
+function fInv(p, d1, d2) {
+  // Approximation via chi2
+  var c1 = chi2Inv(p, d1);
+  var c2 = chi2Inv(1-p, d2);
+  if(c2 <= 0) return 999;
+  return (c1/d1) / (c2/d2);
+}
+
+/* --- Improved F critical via bisection --- */
+function fCritBisect(alpha, d1, d2) {
+  var lo = 0, hi = 100, mid;
+  for(var i = 0; i < 60; i++) {
+    mid = (lo + hi) / 2;
+    var p = fCDF(mid, d1, d2);
+    if(p < alpha) hi = mid; else lo = mid;
+  }
+  return mid;
+}
+
+/* Table Z */
+function calcZTable() {
+  var z = parseFloat(document.getElementById('ztable-input').value);
+  if(isNaN(z)) return;
+  var p = normalCDF(z);
+  document.getElementById('ztable-results').innerHTML =
+    '<div class="result-item"><div class="result-label">Z</div><div class="result-value">' + z.toFixed(2) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">P(Z &le; z)</div><div class="result-value">' + round(p, 4) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">P(Z &gt; z)</div><div class="result-value">' + round(1 - p, 4) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">P(-|z| &lt; Z &lt; |z|)</div><div class="result-value">' + round(normalCDF(Math.abs(z)) - normalCDF(-Math.abs(z)), 4) + '</div></div>';
+}
+
+function buildZTableHTML() {
+  var h = '<table class="stat-table" style="font-size:10px;"><tr><th>Z</th>';
+  for(var c = 0; c <= 9; c++) h += '<th>0.0' + c + '</th>';
+  h += '</tr>';
+  for(var r = 0; r <= 35; r++) {
+    var rv = r / 10;
+    h += '<tr><td style="font-weight:700;">' + rv.toFixed(1) + '</td>';
+    for(var c2 = 0; c2 <= 9; c2++) {
+      var zv = rv + c2 / 100;
+      h += '<td>' + normalCDF(zv).toFixed(4) + '</td>';
+    }
+    h += '</tr>';
+  }
+  h += '</table>';
+  document.getElementById('ztable-container').innerHTML = h;
+}
+
+/* Table t */
+function calcTTable() {
+  var df = parseInt(document.getElementById('ttable-df').value);
+  var alpha = parseFloat(document.getElementById('ttable-alpha').value);
+  if(isNaN(df) || isNaN(alpha) || df < 1) return;
+  var tc = tCritical(alpha, df);
+  document.getElementById('ttable-results').innerHTML =
+    '<div class="result-item"><div class="result-label">ddl</div><div class="result-value">' + df + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Alpha</div><div class="result-value">' + alpha + '</div></div>' +
+    '<div class="result-item"><div class="result-label">t critique</div><div class="result-value">' + round(tc, 4) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Rejet si</div><div class="result-value" style="font-size:11px;">|t| > ' + round(tc, 3) + '</div></div>';
+}
+
+function buildTTableHTML() {
+  var alphas = [0.20, 0.10, 0.05, 0.02, 0.01, 0.001];
+  var dfs = [1,2,3,4,5,6,7,8,9,10,12,14,16,18,20,25,30,40,60,80,100,120];
+  var h = '<table class="stat-table" style="font-size:10px;"><tr><th>ddl</th>';
+  alphas.forEach(function(a) { h += '<th>α=' + a + '</th>'; });
+  h += '</tr>';
+  dfs.forEach(function(df) {
+    h += '<tr><td style="font-weight:700;">' + df + '</td>';
+    alphas.forEach(function(a) { h += '<td>' + round(tCritical(a, df), 3) + '</td>'; });
+    h += '</tr>';
+  });
+  h += '<tr><td style="font-weight:700;">∞</td>';
+  alphas.forEach(function(a) { h += '<td>' + round(normalInv(1 - a/2), 3) + '</td>'; });
+  h += '</tr></table>';
+  document.getElementById('ttable-container').innerHTML = h;
+}
+
+/* Table Chi2 */
+function calcChi2Table() {
+  var df = parseInt(document.getElementById('chi2table-df').value);
+  var alpha = parseFloat(document.getElementById('chi2table-alpha').value);
+  if(isNaN(df) || isNaN(alpha) || df < 1) return;
+  var cv = chi2Inv(1 - alpha, df);
+  document.getElementById('chi2table-results').innerHTML =
+    '<div class="result-item"><div class="result-label">ddl</div><div class="result-value">' + df + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Alpha</div><div class="result-value">' + alpha + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Chi2 critique</div><div class="result-value">' + round(cv, 3) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Rejet si</div><div class="result-value" style="font-size:11px;">χ² > ' + round(cv, 3) + '</div></div>';
+}
+
+function buildChi2TableHTML() {
+  var alphas = [0.995, 0.99, 0.975, 0.95, 0.90, 0.10, 0.05, 0.025, 0.01, 0.005];
+  var dfs = [1,2,3,4,5,6,7,8,9,10,12,14,16,18,20,25,30,40,50,60,80,100];
+  var h = '<table class="stat-table" style="font-size:10px;"><tr><th>ddl</th>';
+  alphas.forEach(function(a) { h += '<th>P=' + a + '</th>'; });
+  h += '</tr>';
+  dfs.forEach(function(df) {
+    h += '<tr><td style="font-weight:700;">' + df + '</td>';
+    alphas.forEach(function(a) { h += '<td>' + round(chi2Inv(a, df), 3) + '</td>'; });
+    h += '</tr>';
+  });
+  h += '</table>';
+  document.getElementById('chi2table-container').innerHTML = h;
+}
+
+/* Table F */
+function calcFTable() {
+  var d1 = parseInt(document.getElementById('ftable-df1').value);
+  var d2 = parseInt(document.getElementById('ftable-df2').value);
+  var alpha = parseFloat(document.getElementById('ftable-alpha').value);
+  if(isNaN(d1) || isNaN(d2) || isNaN(alpha) || d1 < 1 || d2 < 1) return;
+  var fc = fCritBisect(alpha, d1, d2);
+  document.getElementById('ftable-results').innerHTML =
+    '<div class="result-item"><div class="result-label">ddl1</div><div class="result-value">' + d1 + '</div></div>' +
+    '<div class="result-item"><div class="result-label">ddl2</div><div class="result-value">' + d2 + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Alpha</div><div class="result-value">' + alpha + '</div></div>' +
+    '<div class="result-item"><div class="result-label">F critique</div><div class="result-value">' + round(fc, 3) + '</div></div>' +
+    '<div class="result-item"><div class="result-label">Rejet si</div><div class="result-value" style="font-size:11px;">F > ' + round(fc, 3) + '</div></div>';
+}
+
+function buildFTableHTML() {
+  var df1s = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 30];
+  var df2s = [1,2,3,4,5,6,7,8,9,10,12,15,20,25,30,40,60,120];
+  var h = '<table class="stat-table" style="font-size:9px;"><tr><th>ddl2 \\ ddl1</th>';
+  df1s.forEach(function(d1) { h += '<th>' + d1 + '</th>'; });
+  h += '</tr>';
+  df2s.forEach(function(d2) {
+    h += '<tr><td style="font-weight:700;">' + d2 + '</td>';
+    df1s.forEach(function(d1) { h += '<td>' + round(fCritBisect(0.05, d1, d2), 2) + '</td>'; });
+    h += '</tr>';
+  });
+  h += '</table>';
+  document.getElementById('ftable-container').innerHTML = h;
+}
+
+/* ═══════════════════════ QUIZ GENERAL 10 PTS ═══════════════════════ */
+var quizBank = [
+  // Vocabulaire
+  {cat:'Vocabulaire',q:'Qu\'est-ce qu\'une variable quantitative continue ?',o:['Une variable pouvant prendre toutes les valeurs d\'un intervalle','Une variable a nombre fini de valeurs','Une variable non mesurable','Une variable ordinale'],a:0},
+  {cat:'Vocabulaire',q:'La population en statistique designe :',o:['L\'ensemble des individus concernes par l\'etude','Uniquement les individus observes','Un echantillon representatif','Les donnees recueillies'],a:0},
+  {cat:'Vocabulaire',q:'Un echantillon representatif signifie :',o:['Il reproduit les caracteristiques de la population','Il contient au moins 100 individus','Il est toujours aleatoire','Il est sans valeurs manquantes'],a:0},
+  {cat:'Vocabulaire',q:'Le groupe sanguin est une variable de type :',o:['Qualitative nominale','Qualitative ordinale','Quantitative discrete','Quantitative continue'],a:0},
+  {cat:'Vocabulaire',q:'Le nombre d\'oeufs dans un nid est une variable :',o:['Quantitative discrete','Quantitative continue','Qualitative ordinale','Qualitative nominale'],a:0},
+  // Position
+  {cat:'Position',q:'La mediane est robuste aux valeurs extremes car :',o:['Elle depend uniquement de la position centrale des donnees triees','Elle utilise la somme des valeurs','Elle est toujours egale au mode','Elle ne depend pas de la taille de l\'echantillon'],a:0},
+  {cat:'Position',q:'Si Mo < Me < Moyenne, la distribution est :',o:['Asymetrique positive (etalee a droite)','Asymetrique negative (etalee a gauche)','Symetrique','Bimodale'],a:0},
+  {cat:'Position',q:'Pour la serie {2, 3, 5, 7, 11}, la mediane vaut :',o:['5','3','7','5.6'],a:0},
+  {cat:'Position',q:'Le premier quartile Q1 laisse en dessous de lui :',o:['25% des observations','50% des observations','75% des observations','10% des observations'],a:0},
+  {cat:'Position',q:'La moyenne de {4, 6, 8, 10, 12} vaut :',o:['8','6','10','7'],a:0},
+  // Dispersion
+  {cat:'Dispersion',q:'Le coefficient de variation CV permet de :',o:['Comparer la dispersion de series ayant des moyennes differentes','Mesurer la symetrie','Determiner le mode','Calculer la mediane'],a:0},
+  {cat:'Dispersion',q:'L\'etendue d\'une serie est :',o:['La difference entre la valeur max et la valeur min','La somme de toutes les valeurs','L\'ecart-type divise par la moyenne','La distance entre Q1 et Q3'],a:0},
+  {cat:'Dispersion',q:'L\'ecart interquartile (IQR) est :',o:['Q3 - Q1','Q2 - Q1','Max - Min','Ecart-type / 2'],a:0},
+  {cat:'Dispersion',q:'Dans une distribution normale, environ 95.5% des valeurs sont dans :',o:['[mu - 2sigma, mu + 2sigma]','[mu - sigma, mu + sigma]','[mu - 3sigma, mu + 3sigma]','[Q1, Q3]'],a:0},
+  // Tests
+  {cat:'Tests',q:'L\'hypothese nulle H0 stipule generalement :',o:['Pas de difference ou pas d\'effet','Il y a un effet significatif','L\'echantillon est biaise','La variance est nulle'],a:0},
+  {cat:'Tests',q:'Si la p-value = 0.03 et alpha = 0.05, on :',o:['Rejette H0','Ne rejette pas H0','Accepte H0','Ne peut pas conclure'],a:0},
+  {cat:'Tests',q:'L\'erreur de type I consiste a :',o:['Rejeter H0 alors qu\'elle est vraie','Ne pas rejeter H0 alors qu\'elle est fausse','Accepter H1 sans test','Utiliser un mauvais test'],a:0},
+  {cat:'Tests',q:'Le test t de Student compare :',o:['Des moyennes de un ou deux groupes','Des proportions','Des variances uniquement','Des medianes'],a:0},
+  {cat:'Tests',q:'Le test du Chi-deux est utilise pour :',o:['Tester l\'independance entre variables qualitatives','Comparer deux moyennes','Mesurer la correlation lineaire','Estimer un ecart-type'],a:0},
+  {cat:'Tests',q:'L\'ANOVA permet de :',o:['Comparer les moyennes de 3 groupes ou plus','Comparer deux medianes','Tester la normalite','Calculer une regression'],a:0},
+  // Correlation/Regression
+  {cat:'Correlation',q:'Un coefficient de correlation r = -0.92 indique :',o:['Une forte correlation negative','Pas de correlation','Une correlation positive faible','Un lien de causalite'],a:0},
+  {cat:'Correlation',q:'Le coefficient de determination r2 represente :',o:['La part de variance expliquee par le modele','Le coefficient de correlation au carre','La p-value du test','La pente de la droite'],a:0},
+  {cat:'Correlation',q:'Correlation ne signifie pas causalite car :',o:['Deux variables peuvent varier ensemble par hasard ou via un tiers facteur','La correlation est toujours parfaite','Le coefficient r est toujours positif','Les donnees sont toujours normales'],a:0},
+  // Loi normale / Z
+  {cat:'Loi Normale',q:'La variable centree reduite Z se calcule par :',o:['Z = (X - mu) / sigma','Z = X * sigma + mu','Z = (X + mu) / sigma','Z = X / mu'],a:0},
+  {cat:'Loi Normale',q:'Pour un seuil bilateral a 95%, la valeur critique de Z est environ :',o:['1.96','1.64','2.58','3.29'],a:0},
+  {cat:'Loi Normale',q:'Le theoreme central limite dit que :',o:['La distribution des moyennes d\'echantillons tend vers une loi normale','Toute population suit une loi normale','La mediane = la moyenne toujours','L\'ecart-type diminue avec mu'],a:0},
+  // IC
+  {cat:'Intervalle de confiance',q:'Un intervalle de confiance a 95% signifie :',o:['Si on repete l\'experience, 95% des IC contiendront le vrai parametre','Le parametre a 95% de chance d\'etre dans l\'intervalle','5% des donnees sont hors de l\'intervalle','La p-value est 0.95'],a:0},
+  {cat:'Intervalle de confiance',q:'Quand n augmente, l\'intervalle de confiance :',o:['Se retrecit (plus precis)','S\'elargit','Reste identique','Devient bilateral'],a:0},
+  // Forme
+  {cat:'Forme',q:'Une distribution leptocurtique a :',o:['Des queues plus lourdes et un pic plus aigu que la normale','Des queues plus legeres que la normale','Aucune queue','Un kurtosis negatif'],a:0},
+  {cat:'Forme',q:'Le kurtosis d\'une distribution normale vaut :',o:['0 (exces de kurtosis)','3','1','-1'],a:0},
+];
+
+var currentQuizQs = [], userQuizAnswers = [], quizSubmitted = false;
+
+function shuffleArr(a) { var b=a.slice(); for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;} return b; }
+
+function generateQuiz() {
+  quizSubmitted = false;
+  currentQuizQs = shuffleArr(quizBank).slice(0, 10);
+  userQuizAnswers = new Array(10).fill(-1);
+  document.getElementById('quiz-submit-btn').style.display = 'inline-block';
+  document.getElementById('quiz-pdf-btn').style.display = 'none';
+  document.getElementById('quiz-score').innerHTML = '';
+  document.getElementById('quiz-corrections').innerHTML = '';
+  var h = '';
+  currentQuizQs.forEach(function(q, qi2) {
+    var shuffledOpts = q.o.map(function(o,i){return {t:o,orig:i};});
+    shuffledOpts = shuffleArr(shuffledOpts);
+    q._shuffled = shuffledOpts;
+    h += '<div class="card" style="margin:12px 0;" id="qq-' + qi2 + '">';
+    h += '<div class="card-title" style="margin-bottom:8px;"><span style="background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">' + (qi2+1) + '</span> ' + q.cat + '</div>';
+    h += '<p style="font-weight:600;font-size:13.5px;margin-bottom:10px;">' + q.q + '</p>';
+    shuffledOpts.forEach(function(opt, oi) {
+      h += '<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12.5px;transition:background 0.15s;" onmouseover="this.style.background=\'var(--accent-light)\'" onmouseout="this.style.background=\'transparent\'">';
+      h += '<input type="radio" name="qq' + qi2 + '" value="' + opt.orig + '" onchange="userQuizAnswers[' + qi2 + ']=' + opt.orig + '" style="accent-color:var(--accent);">';
+      h += ' ' + opt.t + '</label>';
+    });
+    h += '</div>';
+  });
+  document.getElementById('quiz-area').innerHTML = h;
+}
+
+function submitQuiz() {
+  if(quizSubmitted) return;
+  quizSubmitted = true;
+  var score = 0;
+  var corrections = '<h3>Corrections</h3>';
+  currentQuizQs.forEach(function(q, qi2) {
+    var correct = userQuizAnswers[qi2] === q.a;
+    if(correct) score++;
+    var card = document.getElementById('qq-' + qi2);
+    card.style.borderLeft = '4px solid ' + (correct ? '#10b981' : '#ef4444');
+    corrections += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">';
+    corrections += '<strong>Q' + (qi2+1) + ' (' + q.cat + ')</strong> — ' + (correct ? '<span style="color:#10b981;">Correct</span>' : '<span style="color:#ef4444;">Incorrect</span>') + '<br>';
+    corrections += '<span style="font-size:12px;color:var(--dim);">' + q.q + '</span><br>';
+    if(!correct) corrections += '<span style="font-size:12px;">Votre reponse : ' + (userQuizAnswers[qi2] >= 0 ? q.o[userQuizAnswers[qi2]] : 'Aucune') + '</span><br>';
+    corrections += '<span style="font-size:12px;color:#10b981;font-weight:600;">Bonne reponse : ' + q.o[q.a] + '</span></div>';
+  });
+  var color = score >= 8 ? '#10b981' : score >= 5 ? '#f59e0b' : '#ef4444';
+  document.getElementById('quiz-score').innerHTML = '<div class="card" style="text-align:center;border-top:4px solid ' + color + ';"><div style="font-size:48px;font-family:var(--mono);font-weight:700;color:' + color + ';">' + score + '/10</div><p style="font-size:14px;margin-top:4px;">' + (score>=8?'Excellent !':score>=5?'Pas mal, continuez !':'A revoir...') + '</p></div>';
+  document.getElementById('quiz-corrections').innerHTML = corrections;
+  document.getElementById('quiz-pdf-btn').style.display = 'inline-block';
+  document.getElementById('quiz-submit-btn').style.display = 'none';
+}
+
+function downloadQuizPDF() {
+  var d = new Date();
+  var dd = String(d.getDate()).padStart(2,'0') + String(d.getMonth()+1).padStart(2,'0') + d.getFullYear();
+  var header = 'Laboratoire virtuel de biostatistiques - Universite de Corse - ' + dd;
+  var w = window.open('','','width=800,height=600');
+  var h = '<!DOCTYPE html><html><head><title>Quiz</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:30px;color:#1a202c;}h1{font-size:16px;margin-bottom:4px;}h2{font-size:13px;color:#4f6df5;margin-bottom:20px;font-weight:400;}.header{border-bottom:2px solid #4f6df5;padding-bottom:8px;margin-bottom:20px;}.q{margin:14px 0;page-break-inside:avoid;}.qn{font-weight:700;}.opts{margin:4px 0 0 20px;}.opt{margin:2px 0;}.correct{color:#10b981;font-weight:700;}.wrong{color:#ef4444;}.score{text-align:center;font-size:28px;font-weight:700;margin:30px 0;padding:20px;border:2px solid #4f6df5;border-radius:8px;}@media print{body{padding:15px;}}</style></head><body>';
+  h += '<div class="header"><h1>' + header + '</h1><h2>Quiz de biostatistiques — 10 points</h2></div>';
+  var score = 0;
+  currentQuizQs.forEach(function(q, i) {
+    var ans = userQuizAnswers[i];
+    var ok = ans === q.a;
+    if(ok) score++;
+    h += '<div class="q"><div class="qn">Q' + (i+1) + ' [' + q.cat + '] ' + q.q + '</div><div class="opts">';
+    q.o.forEach(function(o, j) {
+      var cls = '';
+      if(j === q.a) cls = ' class="correct"';
+      else if(j === ans && !ok) cls = ' class="wrong"';
+      h += '<div class="opt"' + cls + '>' + (j === ans ? '>> ' : '   ') + String.fromCharCode(65+j) + '. ' + o + (j === q.a ? ' [BONNE REPONSE]' : '') + '</div>';
+    });
+    h += '</div></div>';
+  });
+  h += '<div class="score">' + score + ' / 10</div>';
+  h += '<script>window.onload=function(){window.print();}<\/script></body></html>';
+  w.document.write(h);
+  w.document.close();
+}
+
+/* ═══════════════════════ CHART.JS — ANIMATIONS GLOBALES ═══════════════════════ */
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.animation = { duration: 700, easing: 'easeInOutQuart' };
+}
+
+/* ═══════════════════════ JEU DE LA VIE DE CONWAY — p5.js ═══════════════════════ */
+(function() {
+  var golSketch = null;
+  var golRunning = false, golGen = 0;
+  var GOL_COLS = 60, GOL_ROWS = 40;
+  var golGrid = [], golNext = [];
+  var golTimer = null;
+
+  function golMakeGrid() {
+    var g = [];
+    for (var r = 0; r < GOL_ROWS; r++) { g[r] = []; for (var c = 0; c < GOL_COLS; c++) g[r][c] = 0; }
+    return g;
+  }
+
+  function golCountN(g, r, c) {
+    var n = 0;
+    for (var dr = -1; dr <= 1; dr++) for (var dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      n += g[(r + dr + GOL_ROWS) % GOL_ROWS][(c + dc + GOL_COLS) % GOL_COLS];
+    }
+    return n;
+  }
+
+  function golStartP5() {
+    var container = document.getElementById('gol-p5-container');
+    if (!container || container.querySelector('canvas')) return;
+    if (golSketch) { golSketch.remove(); golSketch = null; }
+
+    golGrid = golMakeGrid();
+    golNext = golMakeGrid();
+    golGen = 0;
+    var density = (+document.getElementById('gol-density').value) / 100;
+    for (var r = 0; r < GOL_ROWS; r++) for (var c = 0; c < GOL_COLS; c++) golGrid[r][c] = Math.random() < density ? 1 : 0;
+
+    golSketch = new p5(function(p) {
+      var CELL, W, H;
+      p.setup = function() {
+        W = container.clientWidth;
+        CELL = Math.max(6, Math.floor(W / GOL_COLS));
+        H = GOL_ROWS * CELL;
+        var cnv = p.createCanvas(W, H);
+        cnv.parent(container);
+        cnv.style('display', 'block');
+        p.noLoop();
+        p.redraw();
+      };
+      p.draw = function() {
+        p.background(248, 250, 252);
+        // Grille
+        p.stroke(226, 232, 240); p.strokeWeight(0.3);
+        for (var r = 0; r <= GOL_ROWS; r++) { p.line(0, r * CELL, GOL_COLS * CELL, r * CELL); }
+        for (var c = 0; c <= GOL_COLS; c++) { p.line(c * CELL, 0, c * CELL, GOL_ROWS * CELL); }
+        // Cellules
+        p.noStroke();
+        for (var rr = 0; rr < GOL_ROWS; rr++) for (var cc = 0; cc < GOL_COLS; cc++) {
+          if (golGrid[rr][cc]) {
+            p.fill(30, 64, 175);
+            p.rect(cc * CELL + 1, rr * CELL + 1, CELL - 1, CELL - 1, 1);
+          }
+        }
+        // Stats
+        var alive = 0;
+        for (var r2 = 0; r2 < GOL_ROWS; r2++) for (var c2 = 0; c2 < GOL_COLS; c2++) alive += golGrid[r2][c2];
+        var el = document.getElementById('gol-stats');
+        if (el) el.innerHTML =
+          '<div class="result-item"><div class="result-label">Generation</div><div class="result-value">' + golGen + '</div></div>' +
+          '<div class="result-item"><div class="result-label">Cellules vivantes</div><div class="result-value">' + alive + '</div></div>' +
+          '<div class="result-item"><div class="result-label">Densite (%)</div><div class="result-value">' + (alive / (GOL_ROWS * GOL_COLS) * 100).toFixed(1) + '</div></div>' +
+          '<div class="result-item"><div class="result-label">Grille</div><div class="result-value" style="font-size:11px;">' + GOL_COLS + 'x' + GOL_ROWS + '</div></div>';
+      };
+      p.mousePressed = function() {
+        if (p.mouseX < 0 || p.mouseX > p.width || p.mouseY < 0 || p.mouseY > p.height) return;
+        var cc = Math.floor(p.mouseX / CELL);
+        var rr = Math.floor(p.mouseY / CELL);
+        if (rr >= 0 && rr < GOL_ROWS && cc >= 0 && cc < GOL_COLS) {
+          golGrid[rr][cc] = golGrid[rr][cc] ? 0 : 1;
+          p.redraw();
+        }
+      };
+      p.windowResized = function() {
+        W = container.clientWidth;
+        CELL = Math.max(6, Math.floor(W / GOL_COLS));
+        H = GOL_ROWS * CELL;
+        p.resizeCanvas(W, H);
+        p.redraw();
+      };
+      // Expose redraw
+      window._golRedraw = function() { p.redraw(); };
+      window._golStep = function() {
+        for (var r = 0; r < GOL_ROWS; r++) for (var c = 0; c < GOL_COLS; c++) {
+          var n = golCountN(golGrid, r, c);
+          golNext[r][c] = golGrid[r][c] ? ((n === 2 || n === 3) ? 1 : 0) : (n === 3 ? 1 : 0);
+        }
+        var tmp = golGrid; golGrid = golNext; golNext = tmp;
+        golGen++;
+        p.redraw();
+      };
+    });
+  }
+
+  window.golTogglePlay = function() {
+    golRunning = !golRunning;
+    var btn = document.getElementById('gol-play-btn');
+    if (golRunning) {
+      btn.textContent = 'Pause'; btn.className = 'btn btn-secondary';
+      function loop() {
+        if (!golRunning) return;
+        if (window._golStep) window._golStep();
+        golTimer = setTimeout(loop, +document.getElementById('gol-speed').value);
+      }
+      loop();
+    } else {
+      btn.textContent = 'Lancer'; btn.className = 'btn btn-primary';
+      clearTimeout(golTimer);
+    }
+  };
+
+  window.golReset = function() {
+    golRunning = false; clearTimeout(golTimer);
+    document.getElementById('gol-play-btn').textContent = 'Lancer';
+    document.getElementById('gol-play-btn').className = 'btn btn-primary';
+    golGen = 0;
+    var density = (+document.getElementById('gol-density').value) / 100;
+    golGrid = golMakeGrid(); golNext = golMakeGrid();
+    for (var r = 0; r < GOL_ROWS; r++) for (var c = 0; c < GOL_COLS; c++) golGrid[r][c] = Math.random() < density ? 1 : 0;
+    if (window._golRedraw) window._golRedraw();
+  };
+
+  window.golStep = function() { if (!golRunning && window._golStep) window._golStep(); };
+
+  window.golClear = function() {
+    golRunning = false; clearTimeout(golTimer);
+    document.getElementById('gol-play-btn').textContent = 'Lancer';
+    document.getElementById('gol-play-btn').className = 'btn btn-primary';
+    golGen = 0; golGrid = golMakeGrid(); golNext = golMakeGrid();
+    if (window._golRedraw) window._golRedraw();
+  };
+
+  window.golPreset = function(name) {
+    golGrid = golMakeGrid(); golNext = golMakeGrid(); golGen = 0;
+    var cr = Math.floor(GOL_ROWS / 2), cc = Math.floor(GOL_COLS / 2);
+    if (name === 'glider') { [[0,1],[1,2],[2,0],[2,1],[2,2]].forEach(function(p) { golGrid[cr+p[0]][cc+p[1]] = 1; }); }
+    else if (name === 'blinker') { golGrid[cr][cc-1]=1; golGrid[cr][cc]=1; golGrid[cr][cc+1]=1; }
+    if (window._golRedraw) window._golRedraw();
+  };
+
+  // Init on section activation — écoute le clic sur le lien de nav
+  document.addEventListener('click', function(e) {
+    var tgt = e.target;
+    while (tgt && tgt !== document) {
+      if (tgt.dataset && tgt.dataset.target === 's-game-of-life') {
+        setTimeout(function() {
+          if (golSketch) { golSketch.remove(); golSketch = null; }
+          var c = document.getElementById('gol-p5-container');
+          if (c) { c.innerHTML = ''; }
+          golStartP5();
+        }, 200);
+        break;
+      }
+      tgt = tgt.parentNode;
+    }
+  });
+  // Pas d'init au DOMContentLoaded car la section est cachée
+})();
+
+/* ═══════════════════════ MARCHE ALEATOIRE — p5.js ═══════════════════════ */
+(function() {
+  var rwSketch = null, rwRunning = false, rwStepCount = 0, rwTimer = null;
+  var rwParticles = [];
+
+  function rwStartP5() {
+    var container = document.getElementById('rw-p5-container');
+    if (!container) return;
+    if (rwSketch) { rwSketch.remove(); rwSketch = null; }
+    rwStepCount = 0;
+    var n = +document.getElementById('rw-n').value;
+    rwParticles = [];
+    var W0 = container.clientWidth, H0 = Math.round(W0 * 0.45);
+    for (var i = 0; i < n; i++) rwParticles.push({ x: W0/2, y: H0/2, trail: [], col: [79+Math.random()*60, 109+Math.random()*60, 245] });
+
+    rwSketch = new p5(function(p) {
+      var W, H;
+      var COLORS = ['#4f6df5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+      p.setup = function() {
+        W = container.clientWidth; H = Math.round(W * 0.45);
+        var cnv = p.createCanvas(W, H); cnv.parent(container); cnv.style('display','block');
+        p.noLoop(); p.redraw();
+      };
+      p.draw = function() {
+        p.background(248, 250, 252);
+        // Axes
+        p.stroke(226,232,240); p.strokeWeight(1);
+        p.line(W/2, 0, W/2, H); p.line(0, H/2, W, H/2);
+        // Cercle sigma
+        var step = +document.getElementById('rw-step').value;
+        var sigma = step * Math.sqrt(rwStepCount);
+        var r = Math.min(sigma, Math.min(W, H)/2 - 5);
+        p.noFill(); p.stroke(79, 109, 245, 60); p.strokeWeight(1.5);
+        p.ellipse(W/2, H/2, r*2, r*2);
+        // Particules
+        rwParticles.forEach(function(pt, i) {
+          var col = COLORS[i % COLORS.length];
+          // Trace
+          if (pt.trail.length > 1) {
+            p.noFill(); p.stroke(col + '40' || col); p.strokeWeight(1);
+            p.beginShape();
+            pt.trail.forEach(function(t) { p.vertex(t.x, t.y); });
+            p.vertex(pt.x, pt.y);
+            p.endShape();
+          }
+          // Point
+          p.noStroke(); p.fill(col);
+          p.ellipse(pt.x, pt.y, 7, 7);
+        });
+        // Label
+        p.noStroke(); p.fill(79, 109, 245); p.textSize(10); p.textFont('IBM Plex Mono');
+        p.text('sigma = ' + sigma.toFixed(1) + ' px', 8, 14);
+        // Stats
+        rwUpdateStats(W, H);
+      };
+      p.windowResized = function() {
+        W = container.clientWidth; H = Math.round(W * 0.45);
+        p.resizeCanvas(W, H); p.redraw();
+      };
+      window._rwRedraw = function() { p.redraw(); };
+      window._rwDoStep = function() {
+        var step = +document.getElementById('rw-step').value;
+        var W2 = container.clientWidth, H2 = Math.round(W2 * 0.45);
+        rwParticles.forEach(function(pt) {
+          var angle = Math.random() * Math.PI * 2;
+          pt.trail.push({x: pt.x, y: pt.y});
+          if (pt.trail.length > 80) pt.trail.shift();
+          pt.x = Math.max(0, Math.min(W2, pt.x + Math.cos(angle) * step));
+          pt.y = Math.max(0, Math.min(H2, pt.y + Math.sin(angle) * step));
+        });
+        rwStepCount++;
+        p.redraw();
+        if (rwStepCount % 5 === 0) rwUpdateHist();
+      };
+    });
+  }
+
+  function rwUpdateStats(W, H) {
+    var cx = W ? W/2 : 300, cy = H ? H/2 : 150;
+    var xs = rwParticles.map(function(p) { return p.x - cx; });
+    var dists = rwParticles.map(function(p) { return Math.sqrt(Math.pow(p.x-cx,2)+Math.pow(p.y-cy,2)); });
+    var mDist = dists.length ? dists.reduce(function(a,b){return a+b;},0)/dists.length : 0;
+    var varX = xs.length ? xs.reduce(function(a,b){return a+b*b;},0)/xs.length : 0;
+    var el = document.getElementById('rw-stats');
+    if (el) el.innerHTML =
+      '<div class="result-item"><div class="result-label">Pas effectues</div><div class="result-value">'+rwStepCount+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Dist. moy. (px)</div><div class="result-value">'+mDist.toFixed(1)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Variance X</div><div class="result-value">'+varX.toFixed(1)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Ecart-type X</div><div class="result-value">'+Math.sqrt(varX).toFixed(1)+'</div></div>';
+  }
+
+  function rwUpdateHist() {
+    var container = document.getElementById('rw-p5-container');
+    var cx = container ? container.clientWidth/2 : 300;
+    var xs = rwParticles.map(function(p) { return p.x - cx; });
+    if (!xs.length) return;
+    var mn = Math.min.apply(null, xs), mx = Math.max.apply(null, xs);
+    if (mn === mx) { mn -= 1; mx += 1; }
+    var nb = 12, bw = (mx - mn) / nb, bins = [];
+    for (var i = 0; i < nb; i++) {
+      var lo = mn + i * bw, hi = lo + bw;
+      bins.push({ l: Math.round((lo+hi)/2), c: xs.filter(function(v) { return i === nb-1 ? (v >= lo && v <= hi) : (v >= lo && v < hi); }).length });
+    }
+    if (charts['rw-hist']) charts['rw-hist'].destroy();
+    charts['rw-hist'] = new Chart(document.getElementById('rw-hist').getContext('2d'), {
+      type: 'bar',
+      data: { labels: bins.map(function(b){return b.l;}), datasets: [{ data: bins.map(function(b){return b.c;}), backgroundColor:'rgba(79,109,245,0.5)', borderColor:'#4f6df5', borderWidth:1, barPercentage:1, categoryPercentage:1 }] },
+      options: { responsive:true, animation:{duration:400}, plugins:{legend:{display:false},title:{display:true,text:'Distribution des positions X (pas='+rwStepCount+')'}}, scales:{x:{title:{display:true,text:'Position X relative (px)'}},y:{beginAtZero:true,title:{display:true,text:'Nb particules'}}} }
+    });
+  }
+
+  window.rwTogglePlay = function() {
+    rwRunning = !rwRunning;
+    var btn = document.getElementById('rw-play-btn');
+    if (rwRunning) {
+      btn.textContent = 'Pause'; btn.className = 'btn btn-secondary';
+      function loop() {
+        if (!rwRunning) return;
+        if (window._rwDoStep) window._rwDoStep();
+        rwTimer = setTimeout(loop, +document.getElementById('rw-speed').value);
+      }
+      loop();
+    } else {
+      btn.textContent = 'Lancer'; btn.className = 'btn btn-primary';
+      clearTimeout(rwTimer);
+    }
+  };
+
+  window.rwReset = function() {
+    rwRunning = false; clearTimeout(rwTimer);
+    document.getElementById('rw-play-btn').textContent = 'Lancer';
+    document.getElementById('rw-play-btn').className = 'btn btn-primary';
+    if (rwSketch) { rwSketch.remove(); rwSketch = null; }
+    rwStartP5();
+  };
+
+  document.addEventListener('click', function(e) {
+    var tgt = e.target;
+    while (tgt && tgt !== document) {
+      if (tgt.dataset && tgt.dataset.target === 's-random-walk') {
+        setTimeout(function() {
+          if (rwSketch) { rwSketch.remove(); rwSketch = null; }
+          var c = document.getElementById('rw-p5-container');
+          if (c) { c.innerHTML = ''; }
+          rwStartP5();
+        }, 200);
+        break;
+      }
+      tgt = tgt.parentNode;
+    }
+  });
+  // Pas d'init au DOMContentLoaded car la section est cachée
+})();
+
+/* ═══════════════════════ CMR — CAPTURE-MARQUAGE-RECAPTURE — p5.js ═══════════════════════ */
+(function() {
+  var cmrSketch = null;
+  var cmrFish = [], cmrPhase = 1, cmrC1 = 0, cmrC2 = 0, cmrR = 0;
+
+  function cmrStartP5() {
+    var container = document.getElementById('cmr-p5-container');
+    if (!container) return;
+    if (cmrSketch) { cmrSketch.remove(); cmrSketch = null; }
+
+    var N = +document.getElementById('cmr-N').value;
+    cmrFish = []; cmrPhase = 1; cmrC1 = 0; cmrC2 = 0; cmrR = 0;
+
+    cmrSketch = new p5(function(p) {
+      var W, H;
+      p.setup = function() {
+        W = container.clientWidth; H = Math.round(W * 0.38);
+        var cnv = p.createCanvas(W, H); cnv.parent(container); cnv.style('display','block');
+        // Init poissons
+        for (var i = 0; i < N; i++) {
+          cmrFish.push({
+            x: 30 + Math.random() * (W - 60),
+            y: 20 + Math.random() * (H - 40),
+            vx: (Math.random()-0.5)*1.2, vy: (Math.random()-0.5)*0.7,
+            size: 7 + Math.random()*5,
+            marked: false, captured1: false, captured2: false,
+            wobble: Math.random()*Math.PI*2, wobbleSpeed: 0.04+Math.random()*0.03
+          });
+        }
+        cmrUpdateDashboard();
+        cmrUpdatePhaseUI();
+        cmrLog('Nouvelle session demarree. Population N = ' + N + '. Phase 1 : cliquez sur "Valider la capture".');
+        p.frameRate(30);
+      };
+      p.draw = function() {
+        // Fond eau dégradé
+        for (var y = 0; y < H; y++) {
+          var t = y / H;
+          var r = p.lerp(14, 7, t), g2 = p.lerp(165, 89, t), b = p.lerp(233, 133, t);
+          p.stroke(r, g2, b); p.line(0, y, W, y);
+        }
+        // Ondulations
+        p.noFill();
+        for (var i = 0; i < 6; i++) {
+          p.stroke(255, 255, 255, 15); p.strokeWeight(1);
+          p.beginShape();
+          for (var x = 0; x <= W; x += 20) {
+            p.vertex(x, H * 0.1 + i * H * 0.14 + Math.sin(x * 0.02 + p.frameCount * 0.02 + i) * 4);
+          }
+          p.endShape();
+        }
+        // Truites
+        cmrFish.forEach(function(f) {
+          // Mouvement fluide
+          if (cmrPhase !== 3) {
+            f.wobble += f.wobbleSpeed;
+            f.x += f.vx + Math.sin(f.wobble) * 0.3;
+            f.y += f.vy + Math.cos(f.wobble * 0.7) * 0.2;
+            if (f.x < 20) { f.x = 20; f.vx = Math.abs(f.vx); }
+            if (f.x > W - 20) { f.x = W - 20; f.vx = -Math.abs(f.vx); }
+            if (f.y < 15) { f.y = 15; f.vy = Math.abs(f.vy); }
+            if (f.y > H - 15) { f.y = H - 15; f.vy = -Math.abs(f.vy); }
+          }
+          drawFish(p, f, W, H);
+        });
+        // Label
+        p.noStroke(); p.fill(255, 255, 255, 140); p.textSize(9); p.textFont('IBM Plex Mono');
+        p.textAlign(p.RIGHT); p.text('Ruisseau montagnard corse — Salmo trutta macrostigma', W - 8, H - 8);
+      };
+      p.windowResized = function() {
+        W = container.clientWidth; H = Math.round(W * 0.38);
+        p.resizeCanvas(W, H);
+      };
+      window._cmrRedraw = function() { p.redraw(); };
+      window._cmrRescatter = function() {
+        W = container.clientWidth; H = Math.round(W * 0.38);
+        cmrFish.forEach(function(f) {
+          f.x = 30 + Math.random() * (W - 60);
+          f.y = 20 + Math.random() * (H - 40);
+          f.vx = (Math.random()-0.5)*1.2; f.vy = (Math.random()-0.5)*0.7;
+          f.captured1 = false; f.captured2 = false;
+        });
+      };
+    });
+  }
+
+  function drawFish(p, f, W, H) {
+    var sz = f.size;
+    var sel = (cmrPhase === 1 && f.captured1) || (cmrPhase === 2 && f.captured2);
+    p.push();
+    p.translate(f.x, f.y);
+    // Halo si sélectionné
+    if (sel) { p.noFill(); p.stroke(251, 191, 36, 180); p.strokeWeight(2.5); p.ellipse(0, 0, sz*3.8, sz*1.9); }
+    // Corps
+    p.fill(f.marked ? 255 : 240, f.marked ? 240 : 248, f.marked ? 240 : 255, 210);
+    p.stroke(f.marked ? 239 : 3, f.marked ? 68 : 105, f.marked ? 68 : 161);
+    p.strokeWeight(f.marked ? 2 : 1.2);
+    p.ellipse(0, 0, sz * 3.2, sz * 1.4);
+    // Queue
+    p.fill(f.marked ? 239 : 3, f.marked ? 68 : 105, f.marked ? 68 : 161, 100);
+    p.noStroke();
+    p.triangle(sz*1.6, 0, sz*2.5, -sz*0.7, sz*2.5, sz*0.7);
+    // Oeil
+    p.fill(30, 41, 59); p.noStroke();
+    p.ellipse(-sz*0.7, -sz*0.15, sz*0.38, sz*0.38);
+    // Marque rouge
+    if (f.marked) { p.fill(239, 68, 68); p.ellipse(0, 0, sz*0.6, sz*0.6); }
+    p.pop();
+  }
+
+  function cmrUpdateDashboard() {
+    var N = +document.getElementById('cmr-N').value;
+    var el = document.getElementById('cmr-dashboard');
+    if (!el) return;
+    el.innerHTML =
+      '<div class="result-item"><div class="result-label">N reel</div><div class="result-value">'+N+'</div></div>'+
+      '<div class="result-item"><div class="result-label">C1 (marques)</div><div class="result-value" style="color:#4f6df5;">'+cmrC1+'</div></div>'+
+      '<div class="result-item"><div class="result-label">C2 (recaptures)</div><div class="result-value" style="color:#10b981;">'+cmrC2+'</div></div>'+
+      '<div class="result-item"><div class="result-label">R (marques/C2)</div><div class="result-value" style="color:#ef4444;">'+cmrR+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Phase</div><div class="result-value" style="font-size:12px;">'+cmrPhase+'/2</div></div>';
+  }
+
+  function cmrUpdatePhaseUI() {
+    var ind = document.getElementById('cmr-phase-indicator');
+    var btnCap = document.getElementById('cmr-btn-capture');
+    var btnMix = document.getElementById('cmr-btn-mix');
+    if (!ind) return;
+    if (cmrPhase === 1) {
+      ind.textContent = 'Phase 1 — Premiere capture'; ind.style.background='var(--accent-light)'; ind.style.color='var(--accent)';
+      btnCap.textContent='Valider la capture (Phase 1)'; btnCap.style.display='inline-block'; btnMix.style.display='none';
+    } else if (cmrPhase === 1.5) {
+      ind.textContent = 'Melange — Relacher les truites marquees'; ind.style.background='#fffbeb'; ind.style.color='#92400e';
+      btnCap.style.display='none'; btnMix.style.display='inline-block';
+    } else if (cmrPhase === 2) {
+      ind.textContent = 'Phase 2 — Recapture'; ind.style.background='#ecfdf5'; ind.style.color='#065f46';
+      btnCap.textContent='Valider la recapture (Phase 2)'; btnCap.style.display='inline-block'; btnMix.style.display='none';
+    } else if (cmrPhase === 3) {
+      ind.textContent = 'Termine — Resultats disponibles'; ind.style.background='#f0fdf4'; ind.style.color='#166534';
+      btnCap.style.display='none'; btnMix.style.display='none';
+    }
+  }
+
+  function cmrLog(msg) {
+    var el = document.getElementById('cmr-log');
+    if (!el) return;
+    var t = new Date();
+    var ts = '['+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0')+'] ';
+    el.innerHTML += ts + msg + '<br>'; el.scrollTop = el.scrollHeight;
+  }
+
+  window.cmrUpdateParams = function() {
+    document.getElementById('cmr-N-val').textContent = document.getElementById('cmr-N').value;
+    document.getElementById('cmr-diff-val').textContent = document.getElementById('cmr-diff').value + '%';
+  };
+
+  window.cmrNewSession = function() {
+    document.getElementById('cmr-results-block').style.display = 'none';
+    document.getElementById('cmr-log').innerHTML = '';
+    if (cmrSketch) { cmrSketch.remove(); cmrSketch = null; }
+    setTimeout(cmrStartP5, 50);
+  };
+
+  window.cmrPhaseAction = function() {
+    var diff = +document.getElementById('cmr-diff').value / 100;
+    if (cmrPhase === 1) {
+      cmrFish.forEach(function(f) { if (Math.random() < diff) { f.marked=true; f.captured1=true; cmrC1++; } });
+      cmrLog('Phase 1 terminee : ' + cmrC1 + ' truites capturees et marquees.');
+      cmrPhase = 1.5;
+    } else if (cmrPhase === 2) {
+      cmrFish.forEach(function(f) { if (Math.random() < diff) { f.captured2=true; cmrC2++; if(f.marked) cmrR++; } });
+      cmrLog('Phase 2 terminee : ' + cmrC2 + ' truites recapturees, dont ' + cmrR + ' marquees.');
+      cmrPhase = 3;
+      cmrShowResults();
+    }
+    cmrUpdateDashboard(); cmrUpdatePhaseUI();
+  };
+
+  window.cmrMix = function() {
+    if (window._cmrRescatter) window._cmrRescatter();
+    cmrPhase = 2;
+    cmrLog('Population melangee. Phase 2 : cliquez sur "Valider la recapture".');
+    cmrUpdatePhaseUI();
+  };
+
+  function cmrShowResults() {
+    if (cmrR === 0) { cmrLog('ATTENTION : R = 0, impossible de calculer. Recommencez.'); return; }
+    var N_petersen = (cmrC1 * cmrC2) / cmrR;
+    var N_chapman = ((cmrC1+1)*(cmrC2+1))/(cmrR+1)-1;
+    var N_real = +document.getElementById('cmr-N').value;
+    var se_ic = Math.sqrt(cmrC1*cmrC1*cmrC2*(cmrC2-cmrR)/Math.pow(cmrR,3));
+    var ic_lo = Math.max(0, Math.round(N_chapman - 1.96*se_ic));
+    var ic_hi = Math.round(N_chapman + 1.96*se_ic);
+    var err_pct = Math.abs(N_chapman-N_real)/N_real*100;
+    var inIC = N_real >= ic_lo && N_real <= ic_hi;
+    document.getElementById('cmr-results-block').style.display = 'block';
+    document.getElementById('cmr-results').innerHTML =
+      '<div class="result-item"><div class="result-label">C1</div><div class="result-value">'+cmrC1+'</div></div>'+
+      '<div class="result-item"><div class="result-label">C2</div><div class="result-value">'+cmrC2+'</div></div>'+
+      '<div class="result-item"><div class="result-label">R</div><div class="result-value">'+cmrR+'</div></div>'+
+      '<div class="result-item"><div class="result-label">N Petersen</div><div class="result-value" style="color:#f59e0b;">'+Math.round(N_petersen)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">N Chapman</div><div class="result-value" style="color:#4f6df5;">'+Math.round(N_chapman)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">IC 95%</div><div class="result-value" style="font-size:11px;">['+ic_lo+' ; '+ic_hi+']</div></div>'+
+      '<div class="result-item"><div class="result-label">N reel</div><div class="result-value" style="color:#10b981;">'+N_real+'</div></div>'+
+      '<div class="result-item"><div class="result-label">Erreur</div><div class="result-value">'+err_pct.toFixed(1)+'%</div></div>';
+    document.getElementById('cmr-conclusion').innerHTML =
+      '<div class="info-box '+(inIC?'success':'warning')+'"><strong>Interpretation :</strong> N&#770; Chapman = '+Math.round(N_chapman)+' [IC 95% : '+ic_lo+' – '+ic_hi+']. '+
+      (inIC?'La vraie valeur N = '+N_real+' est <strong>contenue dans l\'IC</strong>.':'La vraie valeur N = '+N_real+' est <strong>hors de l\'IC</strong> — verifiez les hypotheses CMR.')+'</div>';
+    if (charts['cmr-chart']) charts['cmr-chart'].destroy();
+    charts['cmr-chart'] = new Chart(document.getElementById('cmr-chart').getContext('2d'), {
+      type:'bar', data:{labels:['N reel','N Petersen','N Chapman'],datasets:[{data:[N_real,Math.round(N_petersen),Math.round(N_chapman)],backgroundColor:['rgba(16,185,129,0.6)','rgba(245,158,11,0.6)','rgba(79,109,245,0.6)'],borderColor:['#10b981','#f59e0b','#4f6df5'],borderWidth:2}]},
+      options:{responsive:true,animation:{duration:800,easing:'easeOutBounce'},plugins:{legend:{display:false},title:{display:true,text:'Comparaison N reel vs estimations CMR'}},scales:{y:{beginAtZero:true,title:{display:true,text:'Effectif'}}}}
+    });
+  }
+
+  window.cmrManualCalc = function() {
+    var c1=+document.getElementById('cmr-manual-c1').value, c2=+document.getElementById('cmr-manual-c2').value, r=+document.getElementById('cmr-manual-r').value;
+    if(r<=0||c1<=0||c2<=0){document.getElementById('cmr-manual-results').innerHTML='<div class="info-box warning">Valeurs invalides (R doit etre > 0).</div>';return;}
+    var Np=(c1*c2)/r, Nc=((c1+1)*(c2+1))/(r+1)-1, se=Math.sqrt(c1*c1*c2*(c2-r)/Math.pow(r,3));
+    var lo=Math.max(0,Math.round(Nc-1.96*se)), hi=Math.round(Nc+1.96*se);
+    document.getElementById('cmr-manual-results').innerHTML=
+      '<div class="result-item"><div class="result-label">N Petersen</div><div class="result-value" style="color:#f59e0b;">'+Math.round(Np)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">N Chapman</div><div class="result-value" style="color:#4f6df5;">'+Math.round(Nc)+'</div></div>'+
+      '<div class="result-item"><div class="result-label">IC 95%</div><div class="result-value" style="font-size:11px;">['+lo+' ; '+hi+']</div></div>'+
+      '<div class="result-item"><div class="result-label">SE</div><div class="result-value">'+se.toFixed(1)+'</div></div>';
+    document.getElementById('cmr-manual-conclusion').innerHTML=
+      '<div class="info-box success"><strong>Estimation :</strong> Avec C1='+c1+', C2='+c2+', R='+r+', N&#770; Chapman = '+Math.round(Nc)+' [IC 95% : '+lo+' – '+hi+'].</div>';
+  };
+
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.dataset && e.target.dataset.target === 's-cmr') {
+      setTimeout(function() { if (!cmrSketch) cmrStartP5(); }, 150);
+    }
+  });
+  document.addEventListener('DOMContentLoaded', function() { setTimeout(cmrStartP5, 600); });
+})();
+
+
+/* ═══════════════════════ INIT ═══════════════════════ */
+document.addEventListener('DOMContentLoaded',function(){
+  showQuizQuestion();updateMeanMedian();updateDispersion();updateGauss();updateShape();updateCorrelation();updateZCalc();updateIC();
+  buildZTableHTML();buildTTableHTML();buildChi2TableHTML();buildFTableHTML();
+});
+</script>
+</body>
+</html>
