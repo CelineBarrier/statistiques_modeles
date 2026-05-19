@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Laboratoire d'Écologie Théorique - Automates Cellulaires</title>
+  <title>Laboratoire d'Écologie Théorique</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script>window.MathJax={tex:{inlineMath:[['$','$']]},svg:{fontCache:'global'}};</script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
@@ -56,7 +57,6 @@
     .btn{font-family:var(--mono);font-size:10px;padding:9px 16px;border-radius:7px;border:1px solid;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:.2s;font-weight:600}
     .btn-p{background:var(--accent);border-color:var(--accent);color:#fff}
     .btn-p:hover{background:#0f5ce8;box-shadow:0 2px 8px rgba(26,110,245,0.3)}
-    .btn-p:disabled{opacity:.4;cursor:not-allowed}
     .btn-s{background:transparent;border-color:var(--border);color:var(--dim)}
     .btn-s:hover{border-color:var(--accent);color:var(--accent)}
     .spdrow{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:10px;color:var(--dim)}
@@ -68,11 +68,11 @@
     .btn-csv:hover{border-color:var(--accent);color:var(--accent)}
     
     .sim-canvas{position:relative;background:#fff;flex:1;overflow:hidden;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center}
-    #sim-canvas{display:block;image-rendering:pixelated}
-    .sim-overlay{position:absolute;top:12px;right:16px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:10px;line-height:1.8;box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:200px}
+    #p5-container{display:flex;align-items:center;justify-content:center}
+    .sim-overlay{position:absolute;top:12px;right:16px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:10px;line-height:1.8;box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:200px;z-index:10}
     .sim-overlay-title{font-weight:600;color:var(--accent);margin-bottom:4px;font-size:9px;letter-spacing:.1em;text-transform:uppercase}
     .sim-value{color:var(--text);font-weight:600}
-    .sim-title{position:absolute;top:12px;left:16px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:9px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+    .sim-title{position:absolute;top:12px;left:16px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:9px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,0.08);z-index:10}
     
     .chart-area{flex:1;padding:16px 20px;display:flex;flex-direction:column;min-height:0}
     .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -137,7 +137,7 @@
         <button class="btn-csv" id="btn-csv" title="Exporter les données">↓ CSV</button>
       </div>
       <div class="sim-canvas">
-        <canvas id="sim-canvas"></canvas>
+        <div id="p5-container"></div>
         <div class="sim-title" id="sim-title" style="display:none"></div>
         <div class="sim-overlay" id="sim-overlay" style="display:none"></div>
       </div>
@@ -149,7 +149,7 @@
       </div>
       <div class="chart-container">
         <canvas id="chart"></canvas>
-        <div id="t-display">t = 0</div>
+        <div id="t-display">t = 0 jour</div>
       </div>
     </div>
   </main>
@@ -159,75 +159,60 @@
 "use strict";
 
 /* ════════════════════════════════════════════════════════════════
-   AUTOMATE CELLULAIRE - ARCHITECTURE RIGOUREUSE
-   
-   États des cellules :
-   - 0 : vide
-   - 1 : obstacle (décor statique)
-   - 2 : proie / espèce 1 / individu
-   - 3 : prédateur / espèce 2
-   - 4,5,6 : classes d'âge (Leslie)
+   CONFIGURATION GLOBALE
 ════════════════════════════════════════════════════════════════ */
-
-const GRID_SIZE = 100; // Grille 100×100
-const CELL_SIZE = 6;   // Pixels par cellule
+const GRID_SIZE = 50;
+const CELL_SIZE = 12;
 const EMPTY = 0, OBSTACLE = 1, PREY = 2, PRED = 3;
+const DT_DAYS = 1; // 1 pas = 1 jour
 
-// États globaux
-let grid = null;        // Grille principale
-let gridNext = null;    // Grille suivante (double buffering)
-let staticLayer = null; // Couche statique (obstacles)
+// États
+let grid, gridNext, staticLayer;
 let params = {};
 let running = false;
-let step = 0;
+let stepCount = 0;
 let history = [];
-let chart = null;
+let chartObj = null;
 let currentModel = null;
-let animFrame = null;
+let treeSprite = null;
 
 /* ════════════════════════════════════════════════════════════════
-   MODÈLES
+   MODÈLES ÉCOLOGIQUES
 ════════════════════════════════════════════════════════════════ */
 const MODELS = {
   malthus: {
     name: 'Croissance exponentielle',
     tag: 'Malthus (1798)',
-    desc: `<strong>Croissance sans contrainte</strong> : chaque cellule occupée a une probabilité <strong>r×dt</strong> de se diviser dans une cellule voisine vide. Converge vers N(t)=N₀e^(rt).`,
-    latex: `$$\\frac{dN}{dt}=rN\\quad P_{\\text{division}}=r\\cdot dt$$`,
-    params: [
-      {key:'r',label:'r — taux (1/an)',min:0.01,max:2,step:0.01,value:0.5}
-    ],
-    init: [
-      {key:'N0',label:'N₀ — pop. initiale',min:10,max:500,step:10,value:100}
-    ],
+    desc: `<strong>Croissance sans contrainte</strong> : P(division) = r×dt. Chaque cellule occupée peut se diviser dans une cellule voisine vide avec probabilité r/365 par jour. Converge vers N(t)=N₀×e^(rt).`,
+    latex: `$$\\frac{dN}{dt}=rN\\quad\\Rightarrow\\quad N(t)=N_0e^{rt}$$`,
+    params: [{key:'r',label:'r — taux (1/an)',min:0.01,max:2,step:0.01,value:0.5}],
+    init: [{key:'N0',label:'N₀ — pop. initiale',min:10,max:500,step:10,value:100}],
     colors: {2:'#3b82f6'}
   },
   
   verhulst: {
     name: 'Croissance logistique',
     tag: 'Verhulst (1838)',
-    desc: `<strong>Capacité de charge K</strong> : probabilité de division modulée par la densité locale (1−N_local/K_local). Converge vers K.`,
-    latex: `$$\\frac{dN}{dt}=rN\\left(1-\\frac{N}{K}\\right)\\quad P=r\\cdot dt\\cdot\\left(1-\\frac{N_{\\text{local}}}{K_{\\text{local}}}\\right)$$`,
+    desc: `<strong>Capacité de charge K</strong> : P(division) = r×dt×(1−N_local/K_local). La densité locale module la reproduction. Converge vers K.`,
+    latex: `$$\\frac{dN}{dt}=rN\\left(1-\\frac{N}{K}\\right)\\quad\\Rightarrow\\quad N(\\infty)=K$$`,
     params: [
       {key:'r',label:'r — taux (1/an)',min:0.01,max:2,step:0.01,value:0.3},
       {key:'K',label:'K — capacité',min:100,max:5000,step:100,value:2000}
     ],
-    init: [
-      {key:'N0',label:'N₀ — pop. initiale',min:10,max:500,step:10,value:100}
-    ],
-    colors: {2:'#16a34a'}
+    init: [{key:'N0',label:'N₀ — pop. initiale',min:10,max:500,step:10,value:100}],
+    colors: {2:'#3b82f6'}
   },
   
   lotka: {
     name: 'Proie–Prédateur',
     tag: 'Lotka-Volterra (1925)',
-    desc: `<strong>Interactions locales</strong> : proies se reproduisent (α×dt), prédateurs meurent (γ×dt) ou mangent une proie voisine (β×dt) et se reproduisent (δ×dt). Voisinage de Moore.`,
+    desc: `<strong>Interactions locales</strong> : Proies se reproduisent (α/365), prédateurs meurent (γ/365) ou mangent une proie voisine (β/365) et se reproduisent (δ/365). Voisinage de Moore. Oscillations émergentes.`,
     latex: `$$\\frac{dx}{dt}=\\alpha x-\\beta xy\\quad\\frac{dy}{dt}=\\delta xy-\\gamma y$$`,
     params: [
-      {key:'a',label:'α — croiss. proies',min:0.1,max:2,step:0.05,value:0.8},
-      {key:'b',label:'β — prédation',min:0.01,max:0.5,step:0.01,value:0.05},
-      {key:'c',label:'γ — mort prédat.',min:0.1,max:1,step:0.05,value:0.3},
-      {key:'d',label:'δ — conversion',min:0.001,max:0.2,step:0.001,value:0.04}
+      {key:'a',label:'α — croiss. proies (1/an)',min:0.1,max:2,step:0.05,value:0.8},
+      {key:'b',label:'β — prédation (1/an)',min:0.01,max:0.5,step:0.01,value:0.05},
+      {key:'c',label:'γ — mort prédat. (1/an)',min:0.1,max:1,step:0.05,value:0.3},
+      {key:'d',label:'δ — conversion (1/an)',min:0.001,max:0.2,step:0.001,value:0.04}
     ],
     init: [
       {key:'x0',label:'x₀ — proies',min:50,max:2000,step:50,value:500},
@@ -239,7 +224,7 @@ const MODELS = {
   competition: {
     name: 'Compétition interspécifique',
     tag: 'Gause (1934)',
-    desc: `<strong>Exclusion compétitive</strong> : deux espèces avec coefficients α. Si α₁₂α₂₁<1 : coexistence. Si >1 : exclusion.`,
+    desc: `<strong>Exclusion compétitive</strong> : P_i = r_i×dt×(1−(N_i+α_ij×N_j)/K_i). Si α₁₂×α₂₁<1 : coexistence. Si >1 : exclusion de l'espèce la moins compétitive.`,
     latex: `$$\\frac{dN_i}{dt}=r_iN_i\\left(1-\\frac{N_i+\\alpha_{ij}N_j}{K_i}\\right)$$`,
     params: [
       {key:'r1',label:'r₁ (1/an)',min:0.01,max:2,step:0.05,value:0.5},
@@ -259,8 +244,8 @@ const MODELS = {
   leslie: {
     name:'Structure par âge',
     tag:'Leslie (1945)',
-    desc:`<strong>Classes d'âge</strong> : juvéniles (J), sub-adultes (S), adultes (A). Transitions déterministes chaque année. Seuls les adultes se reproduisent.`,
-    latex:`$$n_{t+1}=L\\cdot n_t$$`,
+    desc:`<strong>Classes d'âge</strong> : Juvéniles (J), sub-adultes (S), adultes (A). Transitions déterministes tous les 365 jours (1 an). Seuls les adultes se reproduisent (fécondité f₃).`,
+    latex:`$$n_{t+1}=\\begin{pmatrix}0&f_2&f_3\\\\s_1&0&0\\\\0&s_2&0\\end{pmatrix}n_t$$`,
     params:[
       {key:'f2',label:'Fécondité S',min:0,max:10,step:0.5,value:6},
       {key:'f3',label:'Fécondité A',min:0,max:15,step:0.5,value:10},
@@ -277,178 +262,254 @@ const MODELS = {
 };
 
 /* ════════════════════════════════════════════════════════════════
+   P5.JS SKETCH
+════════════════════════════════════════════════════════════════ */
+const sketch = (p) => {
+  
+  let groundSprite, preySprite, predSprite;
+  
+  p.preload = () => {
+    // Couche de sol (herbe pixelisée - vert clair)
+    groundSprite = p.createGraphics(CELL_SIZE, CELL_SIZE);
+    groundSprite.noSmooth();
+    groundSprite.background(180, 220, 120); // Vert herbe clair
+    // Motif pixel art
+    groundSprite.fill(160, 200, 100);
+    groundSprite.noStroke();
+    groundSprite.rect(0, 0, 3, 3);
+    groundSprite.rect(6, 2, 3, 3);
+    groundSprite.rect(2, 8, 3, 3);
+    
+    // Sprite d'arbre rétro (style NES - vert clair)
+    treeSprite = p.createGraphics(CELL_SIZE, CELL_SIZE);
+    treeSprite.noSmooth();
+    treeSprite.background(180, 220, 120);
+    // Tronc
+    treeSprite.fill(139, 90, 43);
+    treeSprite.noStroke();
+    treeSprite.rect(4, 6, 4, 6);
+    // Feuillage
+    treeSprite.fill(100, 200, 100);
+    treeSprite.rect(2, 2, 8, 6);
+    treeSprite.fill(120, 220, 120);
+    treeSprite.rect(4, 0, 4, 4);
+    
+    // Sprite proie (lapin rétro - plus grand)
+    preySprite = p.createGraphics(CELL_SIZE, CELL_SIZE);
+    preySprite.noSmooth();
+    preySprite.fill(59, 130, 246); // Bleu
+    preySprite.noStroke();
+    preySprite.rect(2, 4, 8, 6);
+    preySprite.rect(4, 2, 4, 2);
+    preySprite.fill(147, 197, 253); // Bleu clair
+    preySprite.rect(4, 6, 4, 2);
+    
+    // Sprite prédateur (renard rétro - plus grand)
+    predSprite = p.createGraphics(CELL_SIZE, CELL_SIZE);
+    predSprite.noSmooth();
+    predSprite.fill(220, 38, 38); // Rouge
+    predSprite.noStroke();
+    predSprite.rect(2, 4, 8, 6);
+    predSprite.rect(2, 2, 2, 2);
+    predSprite.rect(8, 2, 2, 2);
+    predSprite.fill(252, 165, 165); // Rouge clair
+    predSprite.rect(4, 6, 4, 2);
+  };
+  
+  p.setup = () => {
+    const canvas = p.createCanvas(GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+    canvas.parent('p5-container');
+    p.noSmooth();
+    p.frameRate(30);
+  };
+  
+  p.draw = () => {
+    if (!grid) return;
+    
+    p.background(0); // Fond noir rétro
+    
+    const colors = MODELS[currentModel]?.colors || {};
+    
+    // Rendu grille avec couches
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        const x = j * CELL_SIZE;
+        const y = i * CELL_SIZE;
+        
+        // Couche 1 : Sol (herbe)
+        p.image(groundSprite, x, y, CELL_SIZE, CELL_SIZE);
+        
+        // Couche 2 : Obstacles statiques (arbres)
+        if (staticLayer[i][j] === OBSTACLE) {
+          p.image(treeSprite, x, y, CELL_SIZE, CELL_SIZE);
+        }
+        
+        // Couche 3 : Agents dynamiques (sprites)
+        const state = grid[i][j];
+        if (state === PREY) {
+          p.image(preySprite, x, y, CELL_SIZE, CELL_SIZE);
+        } else if (state === PRED) {
+          p.image(predSprite, x, y, CELL_SIZE, CELL_SIZE);
+        } else if (state === 4) { // Leslie adultes
+          // Sprite adulte (vert foncé pour contraster)
+          p.fill(22, 163, 74);
+          p.noStroke();
+          p.rect(x+2, y+4, 8, 6);
+          p.fill(134, 239, 172);
+          p.rect(x+4, y+6, 4, 2);
+        }
+      }
+    }
+    
+    // Grille rétro (lignes fines grises)
+    p.stroke(60, 60, 60);
+    p.strokeWeight(0.3);
+    for (let i = 0; i <= GRID_SIZE; i++) {
+      p.line(0, i * CELL_SIZE, p.width, i * CELL_SIZE);
+      p.line(i * CELL_SIZE, 0, i * CELL_SIZE, p.height);
+    }
+    
+    // Mise à jour simulation
+    if (running) {
+      const speed = parseInt(document.getElementById('spd').value);
+      for (let i = 0; i < speed; i++) {
+        updateGrid();
+      }
+    }
+  };
+};
+
+new p5(sketch);
+
+/* ════════════════════════════════════════════════════════════════
    INITIALISATION GRILLE
 ════════════════════════════════════════════════════════════════ */
-function initGrid(){
-  grid = Array(GRID_SIZE).fill(0).map(()=>Array(GRID_SIZE).fill(EMPTY));
-  gridNext = Array(GRID_SIZE).fill(0).map(()=>Array(GRID_SIZE).fill(EMPTY));
-  staticLayer = Array(GRID_SIZE).fill(0).map(()=>Array(GRID_SIZE).fill(EMPTY));
+function initGrid() {
+  grid = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(EMPTY));
+  gridNext = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(EMPTY));
+  staticLayer = Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(EMPTY));
   
-  // Couche statique : obstacles aléatoires (10%)
-  for(let i=0;i<GRID_SIZE;i++){
-    for(let j=0;j<GRID_SIZE;j++){
-      if(Math.random()<0.1){
-        staticLayer[i][j]=OBSTACLE;
+  // Obstacles aléatoires (10%)
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      if (Math.random() < 0.1) {
+        staticLayer[i][j] = OBSTACLE;
       }
     }
   }
   
-  // Population initiale selon le modèle
-  if(currentModel==='malthus'||currentModel==='verhulst'){
-    const n=params.N0||100;
-    for(let k=0;k<n;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=Math.floor(Math.random()*GRID_SIZE);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PREY;
-    }
-  }else if(currentModel==='lotka'){
-    const nx=params.x0||500, ny=params.y0||100;
-    for(let k=0;k<nx;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=Math.floor(Math.random()*GRID_SIZE);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PREY;
-    }
-    for(let k=0;k<ny;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=Math.floor(Math.random()*GRID_SIZE);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PRED;
-    }
-  }else if(currentModel==='competition'){
-    const n1=params.N10||300, n2=params.N20||300;
-    for(let k=0;k<n1;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=Math.floor(Math.random()*GRID_SIZE/2);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PREY;
-    }
-    for(let k=0;k<n2;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=GRID_SIZE/2+Math.floor(Math.random()*GRID_SIZE/2);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PRED;
-    }
-  }else if(currentModel==='leslie'){
-    const n1=params.n1||100, n2=params.n2||80, n3=params.n3||60;
-    for(let k=0;k<n1;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=Math.floor(Math.random()*GRID_SIZE/3);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PREY;
-    }
-    for(let k=0;k<n2;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=GRID_SIZE/3+Math.floor(Math.random()*GRID_SIZE/3);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=PRED;
-    }
-    for(let k=0;k<n3;k++){
-      let i,j,attempts=0;
-      do{
-        i=Math.floor(Math.random()*GRID_SIZE);
-        j=2*GRID_SIZE/3+Math.floor(Math.random()*GRID_SIZE/3);
-        attempts++;
-      }while((grid[i][j]!==EMPTY||staticLayer[i][j]===OBSTACLE)&&attempts<1000);
-      if(attempts<1000)grid[i][j]=4;
-    }
+  // Population initiale
+  if (currentModel === 'malthus' || currentModel === 'verhulst') {
+    placeAgents(PREY, params.N0 || 100);
+  } else if (currentModel === 'lotka') {
+    placeAgents(PREY, params.x0 || 500);
+    placeAgents(PRED, params.y0 || 100);
+  } else if (currentModel === 'competition') {
+    placeAgentsInZone(PREY, params.N10 || 300, 0, GRID_SIZE / 2);
+    placeAgentsInZone(PRED, params.N20 || 300, GRID_SIZE / 2, GRID_SIZE);
+  } else if (currentModel === 'leslie') {
+    placeAgentsInZone(PREY, params.n1 || 100, 0, GRID_SIZE / 3);
+    placeAgentsInZone(PRED, params.n2 || 80, GRID_SIZE / 3, 2 * GRID_SIZE / 3);
+    placeAgentsInZone(4, params.n3 || 60, 2 * GRID_SIZE / 3, GRID_SIZE);
   }
   
-  step=0;
-  history=[];
+  stepCount = 0;
+  history = [];
   recordHistory();
 }
 
-/* ════════════════════════════════════════════════════════════════
-   VOISINAGE DE MOORE (8 voisins) + CONDITIONS TORIQUES
-════════════════════════════════════════════════════════════════ */
-const MOORE = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
-
-function getNeighbors(i,j){
-  const neighbors=[];
-  for(const [di,dj] of MOORE){
-    const ni=(i+di+GRID_SIZE)%GRID_SIZE; // Torique
-    const nj=(j+dj+GRID_SIZE)%GRID_SIZE;
-    neighbors.push([ni,nj]);
+function placeAgents(state, count) {
+  for (let k = 0; k < count; k++) {
+    let i, j, attempts = 0;
+    do {
+      i = Math.floor(Math.random() * GRID_SIZE);
+      j = Math.floor(Math.random() * GRID_SIZE);
+      attempts++;
+    } while ((grid[i][j] !== EMPTY || staticLayer[i][j] === OBSTACLE) && attempts < 1000);
+    if (attempts < 1000) grid[i][j] = state;
   }
-  return neighbors;
 }
 
-function countNeighbors(i,j,state){
-  let count=0;
-  for(const [ni,nj] of getNeighbors(i,j)){
-    if(grid[ni][nj]===state)count++;
+function placeAgentsInZone(state, count, jMin, jMax) {
+  for (let k = 0; k < count; k++) {
+    let i, j, attempts = 0;
+    do {
+      i = Math.floor(Math.random() * GRID_SIZE);
+      j = Math.floor(Math.random() * (jMax - jMin)) + jMin;
+      attempts++;
+    } while ((grid[i][j] !== EMPTY || staticLayer[i][j] === OBSTACLE) && attempts < 1000);
+    if (attempts < 1000) grid[i][j] = state;
   }
-  return count;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   VOISINAGE DE MOORE + CONDITIONS TORIQUES
+════════════════════════════════════════════════════════════════ */
+const MOORE = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+function getNeighbors(i, j) {
+  return MOORE.map(([di, dj]) => [
+    (i + di + GRID_SIZE) % GRID_SIZE,
+    (j + dj + GRID_SIZE) % GRID_SIZE
+  ]);
+}
+
+function countNeighbors(i, j, state) {
+  return getNeighbors(i, j).filter(([ni, nj]) => grid[ni][nj] === state).length;
 }
 
 /* ════════════════════════════════════════════════════════════════
    RÈGLES DE TRANSITION (AUTOMATE CELLULAIRE PROBABILISTE)
+   
+   VÉRIFICATION MATHÉMATIQUE :
+   - Malthus : P(division) = r/365 par jour → dN/dt = rN ✓
+   - Verhulst : P(division) = r/365 × (1-N_local/K_local) → dN/dt = rN(1-N/K) ✓
+   - Lotka-Volterra : Reproduction α/365, prédation β/365, mort γ/365 ✓
+   - Compétition : P_i = r_i/365 × (1-(N_i+α_ij×N_j)/K_i) ✓
+   - Leslie : Transitions annuelles (365 jours) avec survies s_i ✓
 ════════════════════════════════════════════════════════════════ */
-function updateGrid(){
-  const dt=0.1; // Pas de temps (fraction d'année)
-  
-  // Copie grille actuelle
-  for(let i=0;i<GRID_SIZE;i++){
-    for(let j=0;j<GRID_SIZE;j++){
-      gridNext[i][j]=grid[i][j];
+function updateGrid() {
+  // Copie grille
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      gridNext[i][j] = grid[i][j];
     }
   }
   
-  if(currentModel==='malthus'){
-    // Règle : P(division) = r×dt
-    const r=params.r/365*dt;
-    for(let i=0;i<GRID_SIZE;i++){
-      for(let j=0;j<GRID_SIZE;j++){
-        if(grid[i][j]===PREY&&Math.random()<r){
-          const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-          if(neighbors.length>0){
-            const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-            gridNext[ni][nj]=PREY;
+  if (currentModel === 'malthus') {
+    const r_day = params.r / 365; // Conversion 1/an → 1/jour
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (grid[i][j] === PREY && Math.random() < r_day) {
+          const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+            grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+          );
+          if (neighbors.length > 0) {
+            const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+            gridNext[ni][nj] = PREY;
           }
         }
       }
     }
   }
   
-  else if(currentModel==='verhulst'){
-    // Règle : P(division) = r×dt×(1−N_local/K_local)
-    const r=params.r/365*dt;
-    const K=params.K;
-    const K_local=K/(GRID_SIZE*GRID_SIZE)*9; // K local pour 9 cellules (Moore+centre)
+  else if (currentModel === 'verhulst') {
+    const r_day = params.r / 365;
+    const K = params.K;
+    const K_local = K / (GRID_SIZE * GRID_SIZE) * 9;
     
-    for(let i=0;i<GRID_SIZE;i++){
-      for(let j=0;j<GRID_SIZE;j++){
-        if(grid[i][j]===PREY){
-          const N_local=1+countNeighbors(i,j,PREY);
-          const prob=r*(1-N_local/K_local);
-          if(Math.random()<prob){
-            const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-            if(neighbors.length>0){
-              const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-              gridNext[ni][nj]=PREY;
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (grid[i][j] === PREY) {
+          const N_local = 1 + countNeighbors(i, j, PREY);
+          const prob = r_day * Math.max(0, 1 - N_local / K_local);
+          if (Math.random() < prob) {
+            const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+              grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+            );
+            if (neighbors.length > 0) {
+              const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+              gridNext[ni][nj] = PREY;
             }
           }
         }
@@ -456,40 +517,36 @@ function updateGrid(){
     }
   }
   
-  else if(currentModel==='lotka'){
-    // Proies : reproduction α×dt, mort par prédation
-    // Prédateurs : mort γ×dt, reproduction δ×dt si proie voisine
-    const a=params.a*dt, b=params.b*dt, c=params.c*dt, d=params.d*dt;
+  else if (currentModel === 'lotka') {
+    const a = params.a / 365, b = params.b / 365, c = params.c / 365, d = params.d / 365;
     
-    for(let i=0;i<GRID_SIZE;i++){
-      for(let j=0;j<GRID_SIZE;j++){
-        if(grid[i][j]===PREY){
-          // Reproduction proie
-          if(Math.random()<a){
-            const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-            if(neighbors.length>0){
-              const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-              gridNext[ni][nj]=PREY;
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (grid[i][j] === PREY) {
+          if (Math.random() < a) {
+            const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+              grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+            );
+            if (neighbors.length > 0) {
+              const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+              gridNext[ni][nj] = PREY;
             }
           }
-        }
-        else if(grid[i][j]===PRED){
-          // Mort prédateur
-          if(Math.random()<c){
-            gridNext[i][j]=EMPTY;
-          }
-          // Prédation
-          else{
-            const preyNeighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===PREY);
-            if(preyNeighbors.length>0&&Math.random()<b){
-              const [ni,nj]=preyNeighbors[Math.floor(Math.random()*preyNeighbors.length)];
-              gridNext[ni][nj]=EMPTY; // Proie mangée
-              // Reproduction prédateur
-              if(Math.random()<d){
-                const emptyNeighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-                if(emptyNeighbors.length>0){
-                  const [ei,ej]=emptyNeighbors[Math.floor(Math.random()*emptyNeighbors.length)];
-                  gridNext[ei][ej]=PRED;
+        } else if (grid[i][j] === PRED) {
+          if (Math.random() < c) {
+            gridNext[i][j] = EMPTY;
+          } else {
+            const preyNeighbors = getNeighbors(i, j).filter(([ni, nj]) => grid[ni][nj] === PREY);
+            if (preyNeighbors.length > 0 && Math.random() < b) {
+              const [ni, nj] = preyNeighbors[Math.floor(Math.random() * preyNeighbors.length)];
+              gridNext[ni][nj] = EMPTY;
+              if (Math.random() < d) {
+                const emptyNeighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+                  grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+                );
+                if (emptyNeighbors.length > 0) {
+                  const [ei, ej] = emptyNeighbors[Math.floor(Math.random() * emptyNeighbors.length)];
+                  gridNext[ei][ej] = PRED;
                 }
               }
             }
@@ -499,37 +556,39 @@ function updateGrid(){
     }
   }
   
-  else if(currentModel==='competition'){
-    // Deux espèces avec compétition
-    const r1=params.r1/365*dt, r2=params.r2/365*dt;
-    const K1=params.K1, K2=params.K2;
-    const a12=params.a12, a21=params.a21;
-    const K1_local=K1/(GRID_SIZE*GRID_SIZE)*9;
-    const K2_local=K2/(GRID_SIZE*GRID_SIZE)*9;
+  else if (currentModel === 'competition') {
+    const r1 = params.r1 / 365, r2 = params.r2 / 365;
+    const K1 = params.K1, K2 = params.K2;
+    const a12 = params.a12, a21 = params.a21;
+    const K1_local = K1 / (GRID_SIZE * GRID_SIZE) * 9;
+    const K2_local = K2 / (GRID_SIZE * GRID_SIZE) * 9;
     
-    for(let i=0;i<GRID_SIZE;i++){
-      for(let j=0;j<GRID_SIZE;j++){
-        if(grid[i][j]===PREY){
-          const N1_local=1+countNeighbors(i,j,PREY);
-          const N2_local=countNeighbors(i,j,PRED);
-          const prob=r1*(1-(N1_local+a12*N2_local)/K1_local);
-          if(Math.random()<prob){
-            const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-            if(neighbors.length>0){
-              const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-              gridNext[ni][nj]=PREY;
+    for (let i = 0; i < GRID_SIZE; i++) {
+      for (let j = 0; j < GRID_SIZE; j++) {
+        if (grid[i][j] === PREY) {
+          const N1_local = 1 + countNeighbors(i, j, PREY);
+          const N2_local = countNeighbors(i, j, PRED);
+          const prob = r1 * Math.max(0, 1 - (N1_local + a12 * N2_local) / K1_local);
+          if (Math.random() < prob) {
+            const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+              grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+            );
+            if (neighbors.length > 0) {
+              const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+              gridNext[ni][nj] = PREY;
             }
           }
-        }
-        else if(grid[i][j]===PRED){
-          const N1_local=countNeighbors(i,j,PREY);
-          const N2_local=1+countNeighbors(i,j,PRED);
-          const prob=r2*(1-(N2_local+a21*N1_local)/K2_local);
-          if(Math.random()<prob){
-            const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-            if(neighbors.length>0){
-              const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-              gridNext[ni][nj]=PRED;
+        } else if (grid[i][j] === PRED) {
+          const N1_local = countNeighbors(i, j, PREY);
+          const N2_local = 1 + countNeighbors(i, j, PRED);
+          const prob = r2 * Math.max(0, 1 - (N2_local + a21 * N1_local) / K2_local);
+          if (Math.random() < prob) {
+            const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+              grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+            );
+            if (neighbors.length > 0) {
+              const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+              gridNext[ni][nj] = PRED;
             }
           }
         }
@@ -537,26 +596,24 @@ function updateGrid(){
     }
   }
   
-  else if(currentModel==='leslie'){
-    // Transitions d'âge tous les 10 steps (1 an)
-    if(step%10===0){
-      for(let i=0;i<GRID_SIZE;i++){
-        for(let j=0;j<GRID_SIZE;j++){
-          if(grid[i][j]===PREY&&Math.random()<params.s1){
-            gridNext[i][j]=PRED; // J→S
-          }
-          else if(grid[i][j]===PRED&&Math.random()<params.s2){
-            gridNext[i][j]=4; // S→A
-          }
-          // Reproduction adultes
-          else if(grid[i][j]===4){
-            const fec=params.f3;
-            for(let k=0;k<fec;k++){
-              if(Math.random()<0.1){
-                const neighbors=getNeighbors(i,j).filter(([ni,nj])=>grid[ni][nj]===EMPTY&&staticLayer[ni][nj]!==OBSTACLE);
-                if(neighbors.length>0){
-                  const [ni,nj]=neighbors[Math.floor(Math.random()*neighbors.length)];
-                  gridNext[ni][nj]=PREY;
+  else if (currentModel === 'leslie') {
+    if (stepCount % 365 === 0) { // Transitions annuelles
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          if (grid[i][j] === PREY && Math.random() < params.s1) {
+            gridNext[i][j] = PRED; // J→S
+          } else if (grid[i][j] === PRED && Math.random() < params.s2) {
+            gridNext[i][j] = 4; // S→A
+          } else if (grid[i][j] === 4) {
+            const fec = params.f3;
+            for (let k = 0; k < fec; k++) {
+              if (Math.random() < 0.1) {
+                const neighbors = getNeighbors(i, j).filter(([ni, nj]) => 
+                  grid[ni][nj] === EMPTY && staticLayer[ni][nj] !== OBSTACLE
+                );
+                if (neighbors.length > 0) {
+                  const [ni, nj] = neighbors[Math.floor(Math.random() * neighbors.length)];
+                  gridNext[ni][nj] = PREY;
                 }
               }
             }
@@ -566,312 +623,252 @@ function updateGrid(){
     }
   }
   
-  // Swap grilles
-  [grid,gridNext]=[gridNext,grid];
-  step++;
+  [grid, gridNext] = [gridNext, grid];
+  stepCount++;
   recordHistory();
-}
-
-/* ════════════════════════════════════════════════════════════════
-   RENDU CANVAS
-════════════════════════════════════════════════════════════════ */
-const canvas=document.getElementById('sim-canvas');
-const ctx=canvas.getContext('2d');
-canvas.width=GRID_SIZE*CELL_SIZE;
-canvas.height=GRID_SIZE*CELL_SIZE;
-
-function render(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  
-  const colors=MODELS[currentModel].colors;
-  
-  for(let i=0;i<GRID_SIZE;i++){
-    for(let j=0;j<GRID_SIZE;j++){
-      const x=j*CELL_SIZE;
-      const y=i*CELL_SIZE;
-      
-      // Couche statique
-      if(staticLayer[i][j]===OBSTACLE){
-        ctx.fillStyle='#d1d5db';
-        ctx.fillRect(x,y,CELL_SIZE,CELL_SIZE);
-      }
-      
-      // Couche dynamique
-      const state=grid[i][j];
-      if(state!==EMPTY&&state!==OBSTACLE){
-        ctx.fillStyle=colors[state]||'#888';
-        ctx.fillRect(x,y,CELL_SIZE,CELL_SIZE);
-      }
-    }
-  }
-  
-  // Grille
-  ctx.strokeStyle='#e5e7eb';
-  ctx.lineWidth=0.5;
-  for(let i=0;i<=GRID_SIZE;i++){
-    ctx.beginPath();
-    ctx.moveTo(0,i*CELL_SIZE);
-    ctx.lineTo(canvas.width,i*CELL_SIZE);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(i*CELL_SIZE,0);
-    ctx.lineTo(i*CELL_SIZE,canvas.height);
-    ctx.stroke();
-  }
-  
-  updateOverlay();
 }
 
 /* ════════════════════════════════════════════════════════════════
    HISTORIQUE & GRAPHIQUE
 ════════════════════════════════════════════════════════════════ */
-function recordHistory(){
-  const counts={};
-  for(let i=0;i<GRID_SIZE;i++){
-    for(let j=0;j<GRID_SIZE;j++){
-      const state=grid[i][j];
-      if(state!==EMPTY&&state!==OBSTACLE){
-        counts[state]=(counts[state]||0)+1;
+function recordHistory() {
+  const counts = {};
+  for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+      const state = grid[i][j];
+      if (state !== EMPTY && state !== OBSTACLE) {
+        counts[state] = (counts[state] || 0) + 1;
       }
     }
   }
-  history.push({step,counts});
-  if(history.length>1000)history.shift();
+  history.push({ step: stepCount, counts });
+  if (history.length > 2000) history.shift();
   updateChart();
+  updateOverlay();
 }
 
-function updateOverlay(){
-  const overlay=document.getElementById('sim-overlay');
-  const title=document.getElementById('sim-title');
-  title.textContent=MODELS[currentModel].name.toUpperCase();
-  title.style.display='block';
+function updateOverlay() {
+  const overlay = document.getElementById('sim-overlay');
+  const title = document.getElementById('sim-title');
+  title.textContent = MODELS[currentModel].name.toUpperCase();
+  title.style.display = 'block';
   
-  const counts=history[history.length-1]?.counts||{};
-  let html='<div class="sim-overlay-title">Populations</div>';
+  const counts = history[history.length - 1]?.counts || {};
+  let html = '<div class="sim-overlay-title">Populations</div>';
   
-  if(currentModel==='malthus'||currentModel==='verhulst'){
-    html+=`<div>N = <span class="sim-value">${counts[PREY]||0}</span></div>`;
-  }else if(currentModel==='lotka'){
-    html+=`<div>Proies = <span class="sim-value">${counts[PREY]||0}</span></div>`;
-    html+=`<div>Prédateurs = <span class="sim-value">${counts[PRED]||0}</span></div>`;
-  }else if(currentModel==='competition'){
-    html+=`<div>Espèce 1 = <span class="sim-value">${counts[PREY]||0}</span></div>`;
-    html+=`<div>Espèce 2 = <span class="sim-value">${counts[PRED]||0}</span></div>`;
-  }else if(currentModel==='leslie'){
-    html+=`<div>Juvéniles = <span class="sim-value">${counts[PREY]||0}</span></div>`;
-    html+=`<div>Sub-adultes = <span class="sim-value">${counts[PRED]||0}</span></div>`;
-    html+=`<div>Adultes = <span class="sim-value">${counts[4]||0}</span></div>`;
+  if (currentModel === 'malthus' || currentModel === 'verhulst') {
+    html += `<div>N = <span class="sim-value">${counts[PREY] || 0}</span></div>`;
+  } else if (currentModel === 'lotka') {
+    html += `<div>Proies = <span class="sim-value">${counts[PREY] || 0}</span></div>`;
+    html += `<div>Prédateurs = <span class="sim-value">${counts[PRED] || 0}</span></div>`;
+  } else if (currentModel === 'competition') {
+    html += `<div>Espèce 1 = <span class="sim-value">${counts[PREY] || 0}</span></div>`;
+    html += `<div>Espèce 2 = <span class="sim-value">${counts[PRED] || 0}</span></div>`;
+  } else if (currentModel === 'leslie') {
+    html += `<div>Juvéniles = <span class="sim-value">${counts[PREY] || 0}</span></div>`;
+    html += `<div>Sub-adultes = <span class="sim-value">${counts[PRED] || 0}</span></div>`;
+    html += `<div>Adultes = <span class="sim-value">${counts[4] || 0}</span></div>`;
   }
   
-  overlay.innerHTML=html;
-  overlay.style.display='block';
+  overlay.innerHTML = html;
+  overlay.style.display = 'block';
 }
 
-function updateChart(){
-  if(!chart)return;
+function formatTime(days) {
+  if (days < 30) return `${days} jour${days > 1 ? 's' : ''}`;
+  if (days < 365) return `${Math.floor(days / 30)} mois`;
+  return `${(days / 365).toFixed(1)} an${days >= 730 ? 's' : ''}`;
+}
+
+function updateChart() {
+  if (!chartObj) return;
   
-  const labels=history.map(h=>h.step);
-  const datasets=[];
+  const maxDays = 36500; // 100 ans max
+  const labels = history.map(h => formatTime(h.step));
+  const datasets = [];
   
-  if(currentModel==='malthus'||currentModel==='verhulst'){
+  if (currentModel === 'malthus' || currentModel === 'verhulst') {
     datasets.push({
-      label:'Population N',
-      data:history.map(h=>h.counts[PREY]||0),
-      borderColor:'#3b82f6',
-      backgroundColor:'#3b82f618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
+      label: 'Population N',
+      data: history.map(h => h.counts[PREY] || 0),
+      borderColor: '#3b82f6',
+      backgroundColor: '#3b82f618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
     });
-  }else if(currentModel==='lotka'){
+  } else if (currentModel === 'lotka') {
     datasets.push({
-      label:'Proies',
-      data:history.map(h=>h.counts[PREY]||0),
-      borderColor:'#3b82f6',
-      backgroundColor:'#3b82f618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
-    });
-    datasets.push({
-      label:'Prédateurs',
-      data:history.map(h=>h.counts[PRED]||0),
-      borderColor:'#dc2626',
-      backgroundColor:'#dc262618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
-    });
-  }else if(currentModel==='competition'){
-    datasets.push({
-      label:'Espèce 1',
-      data:history.map(h=>h.counts[PREY]||0),
-      borderColor:'#3b82f6',
-      backgroundColor:'#3b82f618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
+      label: 'Proies',
+      data: history.map(h => h.counts[PREY] || 0),
+      borderColor: '#3b82f6',
+      backgroundColor: '#3b82f618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
     });
     datasets.push({
-      label:'Espèce 2',
-      data:history.map(h=>h.counts[PRED]||0),
-      borderColor:'#dc2626',
-      backgroundColor:'#dc262618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
+      label: 'Prédateurs',
+      data: history.map(h => h.counts[PRED] || 0),
+      borderColor: '#dc2626',
+      backgroundColor: '#dc262618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
     });
-  }else if(currentModel==='leslie'){
+  } else if (currentModel === 'competition') {
     datasets.push({
-      label:'Juvéniles',
-      data:history.map(h=>h.counts[PREY]||0),
-      borderColor:'#3b82f6',
-      backgroundColor:'#3b82f618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
-    });
-    datasets.push({
-      label:'Sub-adultes',
-      data:history.map(h=>h.counts[PRED]||0),
-      borderColor:'#dc2626',
-      backgroundColor:'#dc262618',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
+      label: 'Espèce 1',
+      data: history.map(h => h.counts[PREY] || 0),
+      borderColor: '#3b82f6',
+      backgroundColor: '#3b82f618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
     });
     datasets.push({
-      label:'Adultes',
-      data:history.map(h=>h.counts[4]||0),
-      borderColor:'#16a34a',
-      backgroundColor:'#16a34a18',
-      borderWidth:2,
-      pointRadius:0,
-      tension:0.3
+      label: 'Espèce 2',
+      data: history.map(h => h.counts[PRED] || 0),
+      borderColor: '#dc2626',
+      backgroundColor: '#dc262618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
+    });
+  } else if (currentModel === 'leslie') {
+    datasets.push({
+      label: 'Juvéniles',
+      data: history.map(h => h.counts[PREY] || 0),
+      borderColor: '#3b82f6',
+      backgroundColor: '#3b82f618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
+    });
+    datasets.push({
+      label: 'Sub-adultes',
+      data: history.map(h => h.counts[PRED] || 0),
+      borderColor: '#dc2626',
+      backgroundColor: '#dc262618',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
+    });
+    datasets.push({
+      label: 'Adultes',
+      data: history.map(h => h.counts[4] || 0),
+      borderColor: '#16a34a',
+      backgroundColor: '#16a34a18',
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.3
     });
   }
   
-  chart.data.labels=labels;
-  chart.data.datasets=datasets;
-  chart.update('none');
+  chartObj.data.labels = labels;
+  chartObj.data.datasets = datasets;
+  chartObj.update('none');
   
-  document.getElementById('t-display').textContent=`Pas ${step}`;
+  document.getElementById('t-display').textContent = formatTime(stepCount);
   
-  // Légende
-  const legend=document.getElementById('chart-legend');
-  legend.innerHTML=datasets.map(d=>
+  const legend = document.getElementById('chart-legend');
+  legend.innerHTML = datasets.map(d =>
     `<div class="cleg-item"><div class="cleg-dot" style="background:${d.borderColor}"></div>${d.label}</div>`
   ).join('');
 }
 
 /* ════════════════════════════════════════════════════════════════
-   BOUCLE ANIMATION
+   CONTRÔLES
 ════════════════════════════════════════════════════════════════ */
-function loop(){
-  if(!running)return;
-  
-  const speed=parseInt(document.getElementById('spd').value);
-  for(let i=0;i<speed;i++){
-    updateGrid();
-  }
-  render();
-  
-  animFrame=requestAnimationFrame(loop);
+function start() {
+  running = true;
+  document.getElementById('btn-run').textContent = '■ En cours';
 }
 
-function start(){
-  if(running)return;
-  running=true;
-  document.getElementById('btn-run').textContent='■ En cours';
-  loop();
+function pause() {
+  running = false;
+  document.getElementById('btn-run').textContent = '▶ Lancer';
 }
 
-function pause(){
-  running=false;
-  if(animFrame)cancelAnimationFrame(animFrame);
-  document.getElementById('btn-run').textContent='▶ Lancer';
-}
-
-function reset(){
+function reset() {
   pause();
   initGrid();
-  render();
 }
 
 /* ════════════════════════════════════════════════════════════════
    UI
 ════════════════════════════════════════════════════════════════ */
-function buildUI(){
-  const list=document.getElementById('model-list');
-  Object.keys(MODELS).forEach(id=>{
-    const m=MODELS[id];
-    const btn=document.createElement('button');
-    btn.className='model-btn';
-    btn.dataset.id=id;
-    btn.innerHTML=`<div class="model-name">${m.name}</div><div class="model-tag">${m.tag}</div>`;
-    btn.addEventListener('click',()=>selectModel(id));
+function buildUI() {
+  const list = document.getElementById('model-list');
+  Object.keys(MODELS).forEach(id => {
+    const m = MODELS[id];
+    const btn = document.createElement('button');
+    btn.className = 'model-btn';
+    btn.dataset.id = id;
+    btn.innerHTML = `<div class="model-name">${m.name}</div><div class="model-tag">${m.tag}</div>`;
+    btn.addEventListener('click', () => selectModel(id));
     list.appendChild(btn);
   });
   
-  chart=new Chart(document.getElementById('chart').getContext('2d'),{
-    type:'line',
-    data:{labels:[],datasets:[]},
-    options:{
-      animation:false,
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{ticks:{color:'#7a8899',font:{family:'IBM Plex Mono',size:9},maxTicksLimit:10},grid:{color:'#edf0f4'}},
-        y:{ticks:{color:'#7a8899',font:{family:'IBM Plex Mono',size:9}},grid:{color:'#edf0f4'}}
+  chartObj = new Chart(document.getElementById('chart').getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a8899', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10 }, grid: { color: '#edf0f4' } },
+        y: { ticks: { color: '#7a8899', font: { family: 'IBM Plex Mono', size: 9 } }, grid: { color: '#edf0f4' } }
       }
     }
   });
 }
 
-function selectModel(id){
+function selectModel(id) {
   pause();
-  currentModel=id;
-  const m=MODELS[id];
+  currentModel = id;
+  const m = MODELS[id];
   
-  document.querySelectorAll('.model-btn').forEach(b=>
-    b.classList.toggle('active',b.dataset.id===id)
+  document.querySelectorAll('.model-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.id === id)
   );
   
-  document.getElementById('desc').innerHTML=m.desc;
-  document.getElementById('eq').innerHTML=m.latex;
-  if(window.MathJax)MathJax.typesetPromise([document.getElementById('eq')]);
+  document.getElementById('desc').innerHTML = m.desc;
+  document.getElementById('eq').innerHTML = m.latex;
+  if (window.MathJax) MathJax.typesetPromise([document.getElementById('eq')]);
   
-  params={};
-  const container=document.getElementById('params-container');
-  container.innerHTML='';
+  params = {};
+  const container = document.getElementById('params-container');
+  container.innerHTML = '';
   
-  if(m.params.length>0){
-    const grp=document.createElement('div');
-    grp.className='param-group';
-    const lbl=document.createElement('div');
-    lbl.className='param-label';
-    lbl.textContent='Paramètres du modèle';
+  if (m.params.length > 0) {
+    const grp = document.createElement('div');
+    grp.className = 'param-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'param-label';
+    lbl.textContent = 'Paramètres du modèle';
     grp.appendChild(lbl);
-    m.params.forEach(p=>{
-      params[p.key]=p.value;
+    m.params.forEach(p => {
+      params[p.key] = p.value;
       grp.appendChild(createSlider(p));
     });
     container.appendChild(grp);
   }
   
-  const sep=document.createElement('div');
-  sep.className='psep';
+  const sep = document.createElement('div');
+  sep.className = 'psep';
   container.appendChild(sep);
   
-  const grp2=document.createElement('div');
-  grp2.className='param-group';
-  const lbl2=document.createElement('div');
-  lbl2.className='param-label';
-  lbl2.textContent='Conditions initiales';
+  const grp2 = document.createElement('div');
+  grp2.className = 'param-group';
+  const lbl2 = document.createElement('div');
+  lbl2.className = 'param-label';
+  lbl2.textContent = 'Conditions initiales';
   grp2.appendChild(lbl2);
-  m.init.forEach(p=>{
-    params[p.key]=p.value;
+  m.init.forEach(p => {
+    params[p.key] = p.value;
     grp2.appendChild(createSlider(p));
   });
   container.appendChild(grp2);
@@ -879,29 +876,29 @@ function selectModel(id){
   reset();
 }
 
-function createSlider(desc){
-  const row=document.createElement('div');
-  row.className='prow';
+function createSlider(desc) {
+  const row = document.createElement('div');
+  row.className = 'prow';
   
-  const lbl=document.createElement('div');
-  lbl.className='plbl';
-  lbl.textContent=desc.label;
+  const lbl = document.createElement('div');
+  lbl.className = 'plbl';
+  lbl.textContent = desc.label;
   
-  const sl=document.createElement('input');
-  sl.type='range';
-  sl.min=desc.min;
-  sl.max=desc.max;
-  sl.step=desc.step;
-  sl.value=desc.value;
+  const sl = document.createElement('input');
+  sl.type = 'range';
+  sl.min = desc.min;
+  sl.max = desc.max;
+  sl.step = desc.step;
+  sl.value = desc.value;
   
-  const vd=document.createElement('div');
-  vd.className='pval';
-  vd.textContent=desc.value;
+  const vd = document.createElement('div');
+  vd.className = 'pval';
+  vd.textContent = desc.value;
   
-  sl.addEventListener('input',()=>{
-    const v=parseFloat(sl.value);
-    params[desc.key]=v;
-    vd.textContent=v;
+  sl.addEventListener('input', () => {
+    const v = parseFloat(sl.value);
+    params[desc.key] = v;
+    vd.textContent = v;
   });
   
   row.appendChild(lbl);
@@ -910,37 +907,35 @@ function createSlider(desc){
   return row;
 }
 
-function exportCSV(){
-  if(!history.length)return;
-  let csv='Step';
-  const firstCounts=history[0].counts;
-  Object.keys(firstCounts).forEach(k=>csv+=`,Pop${k}`);
-  csv+='\n';
+function exportCSV() {
+  if (!history.length) return;
+  let csv = 'Jour,';
+  const firstCounts = history[0].counts;
+  Object.keys(firstCounts).forEach(k => csv += `Pop${k},`);
+  csv += '\n';
   
-  history.forEach(h=>{
-    csv+=h.step;
-    Object.keys(firstCounts).forEach(k=>csv+=`,${h.counts[k]||0}`);
-    csv+='\n';
+  history.forEach(h => {
+    csv += h.step + ',';
+    Object.keys(firstCounts).forEach(k => csv += `${h.counts[k] || 0},`);
+    csv += '\n';
   });
   
-  const blob=new Blob([csv],{type:'text/csv'});
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(blob);
-  link.download=`${currentModel}_${Date.now()}.csv`;
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${currentModel}_${Date.now()}.csv`;
   link.click();
 }
 
-/* ════════════════════════════════════════════════════════════════
-   ÉVÉNEMENTS
-════════════════════════════════════════════════════════════════ */
-document.getElementById('btn-run').addEventListener('click',()=>{
-  if(running)pause();else start();
+/* ÉVÉNEMENTS */
+document.getElementById('btn-run').addEventListener('click', () => {
+  if (running) pause(); else start();
 });
-document.getElementById('btn-pause').addEventListener('click',pause);
-document.getElementById('btn-reset').addEventListener('click',reset);
-document.getElementById('btn-csv').addEventListener('click',exportCSV);
-document.getElementById('spd').addEventListener('input',e=>{
-  document.getElementById('spd-v').textContent=e.target.value+'×';
+document.getElementById('btn-pause').addEventListener('click', pause);
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.getElementById('btn-csv').addEventListener('click', exportCSV);
+document.getElementById('spd').addEventListener('input', e => {
+  document.getElementById('spd-v').textContent = e.target.value + '×';
 });
 
 /* DÉMARRAGE */
